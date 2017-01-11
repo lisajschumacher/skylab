@@ -450,7 +450,7 @@ class PointSourceLLH(object):
             self._N += len(inject)
 
         # calculate signal term
-        self._ev_S = self.llh_model.signal(src_ra, src_dec, self._ev, scr_sigma=scr_sigma)
+        self._ev_S = self.llh_model.signal(src_ra, src_dec, self._ev, src_sigma=src_sigma)
 
         # do not calculate values with signal below threshold
         ev_mask = self._ev_S > self.thresh_S
@@ -1142,7 +1142,7 @@ class PointSourceLLH(object):
         inject
             Source injector
             
-        scr_sigma : Source spread, Gaussian. Only usable with ExtendedLLH,
+        src_sigma : Source spread, Gaussian. Only usable with ExtendedLLH,
             otherwise no effect
 
         kwargs
@@ -1168,7 +1168,7 @@ class PointSourceLLH(object):
 
         scramble = kwargs.pop("scramble", False)
         inject = kwargs.pop("inject", None)
-        scr_sigma = kwargs.pop("src_sigma", _src_sigma)
+        src_sigma = kwargs.pop("src_sigma", _src_sigma)
         kwargs.setdefault("pgtol", _pgtol)
 
         # Set all weights once for this src location, if not already cached
@@ -2054,7 +2054,7 @@ class ExtendedSourceLLH(PointSourceLLH):
 
         scramble = kwargs.pop("scramble", False)
         inject = kwargs.pop("inject", None)
-        scr_sigma = kwargs.pop("src_sigma", _src_sigma)
+        src_sigma = kwargs.pop("src_sigma", _src_sigma)
         kwargs.setdefault("pgtol", _pgtol)
 
         # Set all weights once for this src location, if not already cached

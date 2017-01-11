@@ -339,13 +339,13 @@ class ClassicLLH(NullModel):
         Optional
         --------
         kwargs : placeholder for compability with extended sources, 
-            see ExtendedLLH.signal. Setting scr_sigma has no effect, unless
+            see ExtendedLLH.signal. Setting src_sigma has no effect, unless
             ExtendedLLH is used as model
 
         """
-        scr_sigma=kwargs.pop("scr_sigma", 0.)
-        if np.isclose(scr_sigma, 0.):
-            print("Setting source extension scr_sigma has no effect! Use ExtendedLLH instead.")
+        src_sigma=kwargs.pop("src_sigma", 0.)
+        if not np.isclose(src_sigma, 0.):
+            print("Setting source extension src_sigma has no effect! Use ExtendedLLH instead.")
         cos_ev = np.sqrt(1. - ev["sinDec"]**2)
         cosDist = (np.cos(src_ra - ev["ra"])
                             * np.cos(src_dec) * cos_ev

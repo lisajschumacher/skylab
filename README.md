@@ -12,3 +12,4 @@ search. All the magic happens within the framework of *numpy*, *scipy*, and
 
 http://github.com/coenders/skylab
 
+#extended_sources branch: experimental addition to the original skylab code *IN WORK*

@@ -319,7 +319,7 @@ class ClassicLLH(NullModel):
         """
         return
 
-    def signal(self, src_ra, src_dec, ev):
+    def signal(self, src_ra, src_dec, ev, **kwargs):
         r"""Spatial distance between source position and events
 
         Signal is assumed to cluster around source position.
@@ -335,8 +335,17 @@ class ClassicLLH(NullModel):
         --------
         P : array-like
             Spatial signal probability for each event
+            
+        Optional
+        --------
+        kwargs : placeholder for compability with extended sources, 
+            see ExtendedLLH.signal. Setting scr_sigma has no effect, unless
+            ExtendedLLH is used as model
 
         """
+        scr_sigma=kwargs.pop("scr_sigma", 0.)
+        if np.isclose(scr_sigma, 0.):
+            print("Setting source extension scr_sigma has no effect! Use ExtendedLLH instead.")
         cos_ev = np.sqrt(1. - ev["sinDec"]**2)
         cosDist = (np.cos(src_ra - ev["ra"])
                             * np.cos(src_dec) * cos_ev
@@ -826,7 +835,58 @@ class EnergyLLH(PowerLawLLH):
 
         return
 
+class ExtendedLLH(PowerLawLLH):
+    r"""Likelihood using Energy Proxy and declination, where declination is
+    used for normalisation to account for changing energy distributions.
+    
+    It is possible to evaluate an extended source hypothesis
 
+    """
+    def __init__(self, twodim_bins=_2dim_bins, twodim_range=None,
+                 **kwargs):
+        r"""Constructor
+
+        """
+        super(ExtendedLLH, self).__init__(["logE", "sinDec"],
+                                        twodim_bins, range=twodim_range,
+                                        normed=1,
+                                        **kwargs)
+
+        return
+    
+    def signal(self, src_ra, src_dec, ev, src_sigma):
+        r"""Spatial distance between source position and events
+
+        Signal is assumed to cluster around source position.
+        Source is now assumed to be extended with parameter src_sigma.
+        The distribution is assumed to be well approximated by a gaussian
+        locally.
+
+        Parameters
+        -----------
+        ev : structured array
+            Event array, import information: sinDec, ra, sigma
+        src_sigma : float
+            Gaussian extension of source
+
+        Returns
+        --------
+        P : array-like
+            Spatial signal probability for each event
+
+        """
+        cos_ev = np.sqrt(1. - ev["sinDec"]**2)
+        cosDist = (np.cos(src_ra - ev["ra"])
+                            * np.cos(src_dec) * cos_ev
+                          + np.sin(src_dec) * ev["sinDec"])
+
+        # handle possible floating precision errors
+        cosDist[np.isclose(cosDist, 1.) & (cosDist > 1)] = 1.
+        dist = np.arccos(cosDist)
+
+        return (1./2./np.pi/(ev["sigma"]**2+src_sigma**2)
+                * np.exp(-dist**2/2./(ev["sigma"]**2+src_sigma**2)))
+    
 class EnergyDistLLH(PowerLawLLH):
     r"""Likelihood using Energy Proxy and starting distance for evaluation.
     Declination is not used for normalisation assuming that the energy does not

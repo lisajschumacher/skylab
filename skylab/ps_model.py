@@ -343,17 +343,19 @@ class ClassicLLH(NullModel):
             ExtendedLLH is used as model
 
         """
-        src_sigma=kwargs.pop("src_sigma", 0.)
-        if not np.isclose(src_sigma, 0.):
+        src_sigma=kwargs.pop("src_sigma", np.zeros_like(src_ra))
+        if not np.allclose(src_sigma, np.zeros_like(src_sigma)):
             print("Setting source extension src_sigma has no effect! Use ExtendedLLH instead.")
         cos_ev = np.sqrt(1. - ev["sinDec"]**2)
-        cosDist = (np.cos(src_ra - ev["ra"])
-                            * np.cos(src_dec) * cos_ev
-                          + np.sin(src_dec) * ev["sinDec"])
+        cosDist = [np.cos(src_ra[i] - ev["ra"])
+                            * np.cos(src_dec[i]) * cos_ev
+                          + np.sin(src_dec[i]) * ev["sinDec"] for i in range(len(src_ra))]
 
         # handle possible floating precision errors
-        cosDist[np.isclose(cosDist, 1.) & (cosDist > 1)] = 1.
+        for cosDist_i in cosDist:
+            cosDist_i[np.isclose(cosDist_i, np.ones_like(cosDist_i)) & (cosDist_i > np.ones_like(cosDist_i))]=1.
         dist = np.arccos(cosDist)
+        print("cosDist", np.shape(cosDist))
 
         return (1./2./np.pi/ev["sigma"]**2
                 * np.exp(-dist**2 / 2. / ev["sigma"]**2))

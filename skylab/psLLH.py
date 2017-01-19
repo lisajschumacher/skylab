@@ -387,20 +387,111 @@ class PointSourceLLH(object):
             Source spread, assumed as gaussian sigma
 
         """
-
+        #~ src_ra=np.atleast_1d(src_ra)
+        #~ src_dec=np.atleast_1d(src_dec)
+#~ 
+        #~ scramble = kwargs.pop("scramble", False)
+        #~ inject = kwargs.pop("inject", None)
+        #~ src_sigma = kwargs.pop("src_sigma", _src_sigma*np.ones_like(src_ra))
+        #~ if kwargs:
+            #~ raise ValueError("Don't know arguments", kwargs.keys())
+#~ 
+        #~ # reset
+        #~ self.reset()
+#~ 
+        #~ # get the zenith band with correct boundaries
+        #~ dec = src_dec#(np.pi - 2. * self.delta_ang) / np.pi * src_dec
+        #~ min_dec = max(-np.pi / 2., dec - self.delta_ang)
+        #~ max_dec = min(np.pi / 2., dec + self.delta_ang)
+        #~ min_dec = np.maximum(-np.pi / 2.*np.ones_like(src_dec), src_dec - self.delta_ang)
+        #~ max_dec = np.minimum(np.pi / 2.*np.ones_like(src_dec), src_dec + self.delta_ang)
+#~ 
+        #~ dPhi = 2. * np.pi
+#~ 
+        #~ # number of total events
+        #~ self._N = len(self.exp)
+#~ 
+        #~ if self.mode == "all" :
+            #~ # all events are selected
+            #~ exp_mask = np.ones_like(self.exp["sinDec"], dtype=np.bool)
+#~ 
+        #~ elif self.mode in ["band", "box"]:
+            #~ # get events that are within the declination band
+            #~ exp_mask = ((self.exp["sinDec"] > np.sin(min_dec))
+                        #~ & (self.exp["sinDec"] < np.sin(max_dec)))
+#~ 
+        #~ else:
+            #~ raise ValueError("Not supported mode: {0:s}".format(self.mode))
+#~ 
+        #~ # update the zenith selection and background probability
+        #~ self._ev = self.exp[exp_mask]
+#~ 
+        #~ # update rightascension information for scrambled events
+        #~ if scramble and not self.fix:
+            #~ self._ev["ra"] = self.random.uniform(0., 2. * np.pi,
+                                                 #~ size=len(self._ev))
+#~ 
+        #~ # selection in rightascension
+        #~ if self.mode == "box":
+            #~ # the solid angle dOmega = dRA * dSinDec = dRA * dDec * cos(dec)
+            #~ # is a function of declination, i.e., for a constant dOmega,
+            #~ # the rightascension value has to change with declination
+            #~ cosFact = np.amin(np.cos([min_dec, max_dec]))
+            #~ dPhi = np.amin([2. * np.pi, 2. * self.delta_ang / cosFact])
+            #~ ra_dist = np.fabs((self._ev["ra"] - src_ra + np.pi) % (2. * np.pi)
+                              #~ - np.pi)
+            #~ mask = ra_dist < dPhi/2.
+#~ 
+            #~ self._ev = self._ev[mask]
+#~ 
+        #~ self._src_ra = src_ra
+        #~ self._src_dec = src_dec
+#~ 
+        #~ if inject is not None:
+            #~ self._ev = np.append(self._ev,
+                                 #~ numpy.lib.recfunctions.append_fields(
+                                    #~ inject, "B",
+                                    #~ self.llh_model.background(inject),
+                                    #~ usemask=False))
+#~ 
+            #~ self._N += len(inject)
+#~ 
+        #~ # calculate signal term
+        #~ self._ev_S = self.llh_model.signal(src_ra, src_dec, self._ev, src_sigma=src_sigma)
+#~ 
+        #~ # do not calculate values with signal below threshold
+        #~ ev_mask = self._ev_S > self.thresh_S
+        #~ self._ev = self._ev[ev_mask]
+        #~ self._ev_S = self._ev_S[ev_mask]
+#~ 
+        #~ # set number of selected events
+        #~ self._n = len(self._ev)
+#~ 
+        #~ if (self._n < 1
+            #~ and (np.sin(self._src_dec) < self.sinDec_range[0]
+                 #~ and np.sin(self._src_dec) > self.sinDec_range[-1])):
+            #~ logger.error("No event was selected, fit will go to -infinity")
+#~ 
+        #~ return
         scramble = kwargs.pop("scramble", False)
         inject = kwargs.pop("inject", None)
-        src_sigma = kwargs.pop("src_sigma", _src_sigma*np.ones_like(src_ra))
+        src_sigma = kwargs.pop("src_sigma", 0.)
         if kwargs:
             raise ValueError("Don't know arguments", kwargs.keys())
 
         # reset
         self.reset()
+        
+        # Bring eveything in the right format and check the length #
+        src_dec=np.atleast_1d(src_dec)
+        src_ra=np.atleast_1d(src_ra)
+        src_sigma=np.atleast_1d(src_sigma)
+        assert(len(src_dec) == len(src_ra) == len(src_sigma))
 
         # get the zenith band with correct boundaries
-        dec = src_dec#(np.pi - 2. * self.delta_ang) / np.pi * src_dec
-        min_dec = max(-np.pi / 2., dec - self.delta_ang)
-        max_dec = min(np.pi / 2., dec + self.delta_ang)
+        #dec = src_dec#(np.pi - 2. * self.delta_ang) / np.pi * src_dec
+        min_dec = np.maximum(-np.pi / 2.*np.ones_like(src_dec), src_dec - self.delta_ang)
+        max_dec = np.minimum(np.pi / 2.*np.ones_like(src_dec), src_dec + self.delta_ang)
 
         dPhi = 2. * np.pi
 
@@ -412,14 +503,17 @@ class PointSourceLLH(object):
             exp_mask = np.ones_like(self.exp["sinDec"], dtype=np.bool)
 
         elif self.mode in ["band", "box"]:
-            # get events that are within the declination band
-            exp_mask = ((self.exp["sinDec"] > np.sin(min_dec))
-                        & (self.exp["sinDec"] < np.sin(max_dec)))
-
+            # get events that are within the declination band of several sources and convert to one single mask
+            dec_mask = [(self.exp["sinDec"] > min_i) & (self.exp["sinDec"] < max_i) 
+                                        for min_i, max_i in zip(np.sin(min_dec), np.sin(max_dec))]
+            exp_mask = np.logical_or.reduce(dec_mask)
+            # Get one mask for all events
+            # exp_mask=np.array(exp_mask, dtype=bool)
         else:
             raise ValueError("Not supported mode: {0:s}".format(self.mode))
 
         # update the zenith selection and background probability
+        # _ev are the selected events -> 1D
         self._ev = self.exp[exp_mask]
 
         # update rightascension information for scrambled events
@@ -432,13 +526,14 @@ class PointSourceLLH(object):
             # the solid angle dOmega = dRA * dSinDec = dRA * dDec * cos(dec)
             # is a function of declination, i.e., for a constant dOmega,
             # the rightascension value has to change with declination
-            cosFact = np.amin(np.cos([min_dec, max_dec]))
-            dPhi = np.amin([2. * np.pi, 2. * self.delta_ang / cosFact])
-            ra_dist = np.fabs((self._ev["ra"] - src_ra + np.pi) % (2. * np.pi)
-                              - np.pi)
-            mask = ra_dist < dPhi/2.
-
-            self._ev = self._ev[mask]
+            cosFact = [np.minimum(np.cos(min_i), np.cos(max_i)) for min_i, max_i in zip(min_dec, max_dec)]
+            dPhi = [np.minimum(2. * np.pi * np.ones_like(cos_i), 2. * self.delta_ang / cos_i) for cos_i in cosFact]
+            
+            #Find all events within (ra,dec) tolerance            
+            ra_dist = [np.fabs((self._ev["ra"] - src_ra_i + np.pi) % (2. * np.pi) - np.pi) for src_ra_i in src_ra]
+            ra_mask = [ra_dist[i] < dp/2. for i,dp in enumerate(dPhi)]
+            mask = [np.logical_and(ra_mask[i], dec_mask[i][exp_mask]) for i in range(len(src_ra))]            
+            self._ev=self._ev[np.logical_or.reduce(mask)]
 
         self._src_ra = src_ra
         self._src_dec = src_dec
@@ -453,12 +548,17 @@ class PointSourceLLH(object):
             self._N += len(inject)
 
         # calculate signal term
-        self._ev_S = self.llh_model.signal(src_ra, src_dec, self._ev, src_sigma=src_sigma)
+        self._ev_S = self.llh_model.signal(src_ra, src_dec, self._ev, src_sigma=src_sigma)#, src_mask=mask)
+        # _ev_S is now a list with entries for each source
+        # Signal part should have 1st dimension of length of #sources
+        assert(len(self._ev_S)==len(src_ra))
 
         # do not calculate values with signal below threshold
-        ev_mask = self._ev_S > self.thresh_S
-        self._ev = self._ev[ev_mask]
-        self._ev_S = self._ev_S[ev_mask]
+        s_mask = np.logical_or.reduce([evs > self.thresh_S for evs in self._ev_S])
+        self._ev_S = [evS[s_mask] for evS in self._ev_S]
+        self._ev = self._ev[s_mask]
+        # Check dimensions again
+        assert(len(self._ev_S)==len(src_ra))
 
         # set number of selected events
         self._n = len(self._ev)
@@ -1064,8 +1164,10 @@ class PointSourceLLH(object):
         n = self._n
 
         assert(n == len(self._ev))
-
-        SoB = self._ev_S / self._ev["B"]
+        # Get relative source weights according to effective area
+        src_w, src_w_grad = self.llh_model.effA(dec=self._src_dec, **fit_pars)
+        #w_norm = src_w.sum()
+        SoB = np.dot(src_w.transpose(), self._ev_S)/ src_w.sum() / self._ev["B"]
 
         w, grad_w = self.llh_model.weight(self._ev, **fit_pars)
 
@@ -1120,6 +1222,73 @@ class PointSourceLLH(object):
         grad = 2. * grad
 
         return LogLambda, grad
+        #~ nsources = fit_pars.pop("nsources")
+#~ 
+        #~ N = self._N
+        #~ n = self._n
+#~ 
+        #~ assert(n == len(self._ev))
+        #~ # Assure that signal is 1D, otherwise print assertion error
+        #~ if np.shape(self._ev_S)[0]!=1:
+            #~ logger.error("""Signal Likelihood has wrong shape: {}, 
+            #~ you probably have tried to calculate LLH for multiple sources""".format(np.shape(self._ev_S)))
+            #~ raise Exception("#source Error, use StackingSourceLLH instead")
+#~ 
+        #~ SoB = self._ev_S / self._ev["B"]
+#~ 
+        #~ w, grad_w = self.llh_model.weight(self._ev, **fit_pars)
+#~ 
+        #~ x = (SoB * w - 1.) / N
+#~ 
+        #~ # check which sums of the likelihood are close to the divergence
+        #~ aval = -1. + _aval
+        #~ alpha = nsources * x
+#~ 
+        #~ # select events close to divergence
+        #~ xmask = alpha > aval
+#~ 
+        #~ # function value, log1p for OK, otherwise quadratic taylor
+        #~ funval = np.empty_like(alpha, dtype=np.float)
+        #~ funval[xmask] = np.log1p(alpha[xmask])
+        #~ funval[~xmask] = (np.log1p(aval)
+                      #~ + 1. / (1.+aval) * (alpha[~xmask] - aval)
+                      #~ - 1./2./(1.+aval)**2 * (alpha[~xmask]-aval)**2)
+        #~ funval = funval.sum()
+        #~ if N > n:
+            #~ funval += (N - n) * np.log1p(-nsources / N)
+#~ 
+        #~ # gradients
+#~ 
+        #~ # in likelihood function
+        #~ ns_grad = np.empty_like(alpha, dtype=np.float)
+        #~ ns_grad[xmask] = x[xmask] / (1. + alpha[xmask])
+        #~ ns_grad[~xmask] = (x[~xmask] / (1. + aval)
+                       #~ - x[~xmask] * (alpha[~xmask] - aval) / (1. + aval)**2)
+        #~ ns_grad = ns_grad.sum()
+        #~ if N > n:
+            #~ ns_grad -= (N - n) / (N - nsources)
+#~ 
+        #~ # in weights
+        #~ if grad_w is not None:
+            #~ par_grad = 1. / N * SoB * grad_w
+#~ 
+            #~ par_grad[:, xmask] *= nsources / (1. + alpha[xmask])
+            #~ par_grad[:, ~xmask] *= (nsources / (1. + aval)
+                                    #~ - nsources * (alpha[~xmask] - aval)
+                                        #~ / (1. + aval)**2)
+#~ 
+            #~ par_grad = par_grad.sum(axis=-1)
+#~ 
+        #~ else:
+            #~ par_grad = np.zeros((0,))
+#~ 
+        #~ grad = np.append(ns_grad, par_grad)
+#~ 
+        #~ # multiply by two for chi2 distributed test-statistic
+        #~ LogLambda = 2. * funval
+        #~ grad = 2. * grad
+#~ 
+        #~ return LogLambda, grad
 
     def fit_source(self, src_ra, src_dec, **kwargs):
         """Minimize the negative log-Likelihood at source position(s).
@@ -1168,12 +1337,16 @@ class PointSourceLLH(object):
 
             # return negative value needed for minimization
             return -fun, -grad
-
+            
         scramble = kwargs.pop("scramble", False)
         inject = kwargs.pop("inject", None)
-        src_sigma = kwargs.pop("src_sigma", _src_sigma*np.ones_like(src_ra))
+        src_dec=np.atleast_1d(src_dec)
+        src_ra=np.atleast_1d(src_ra)        
+        src_sigma = np.atleast_1d(kwargs.pop("src_sigma", _src_sigma*np.ones_like(src_ra)))
         kwargs.setdefault("pgtol", _pgtol)
-
+        assert(len(src_dec)==len(src_ra)==len(src_sigma))
+        if len(src_ra)>1:
+            print("Calculating Stacking LLH for {} sources".format(len(src_ra)))
         # Set all weights once for this src location, if not already cached
         self._select_events(src_ra, src_dec, src_sigma=src_sigma, inject=inject, scramble=scramble)
 
@@ -1233,6 +1406,74 @@ class PointSourceLLH(object):
         fmin *= -np.sign(xmin["nsources"])
 
         return fmin, xmin
+        #~ scramble = kwargs.pop("scramble", False)
+        #~ inject = kwargs.pop("inject", None)
+        #~ src_sigma = kwargs.pop("src_sigma", _src_sigma*np.ones_like(src_ra))
+        #~ kwargs.setdefault("pgtol", _pgtol)
+#~ 
+        #~ # Set all weights once for this src location, if not already cached
+        #~ self._select_events(src_ra, src_dec, src_sigma=src_sigma, inject=inject, scramble=scramble)
+        #~ if np.shape(self._ev_S)[0]!=1:
+            #~ logger.error("""Signal Likelihood has wrong shape: {}, 
+            #~ you probably have tried to calculate LLH for multiple sources""".format(np.shape(self._ev_S)))
+            #~ raise Exception("#source Error, use StackingSourceLLH instead")
+#~ 
+        #~ if self._N < 1:
+            #~ # No events selected
+            #~ return 0., dict([(par, par_s) if not par == "nsources" else (par, 0.)
+                             #~ for par, par_s in zip(self.params, self.par_seeds)])
+#~ 
+        #~ # get seeds
+        #~ pars = self.par_seeds
+        #~ inds = [i for i, par in enumerate(self.params) if par in kwargs]
+        #~ pars[inds] = np.array([kwargs.pop(par) for par in self.params
+                                               #~ if par in kwargs])
+#~ 
+        #~ # minimizer setup
+        #~ xmin, fmin, min_dict = scipy.optimize.fmin_l_bfgs_b(
+                                #~ _llh, pars,
+                                #~ bounds=self.par_bounds,
+                                #~ **kwargs)
+#~ 
+        #~ # set up mindict to enter while, exit if fit looks nice
+        #~ i = 1
+        #~ while min_dict["warnflag"] == 2 and "FACTR" in min_dict["task"]:
+            #~ if i > 100:
+                #~ raise RuntimeError("Did not manage good fit")
+#~ 
+            #~ pars[0] = self.random.uniform(0., 2. * pars[0])
+#~ 
+            #~ # no stop due to gradient
+            #~ xmin, fmin, min_dict = scipy.optimize.fmin_l_bfgs_b(
+                                    #~ _llh, pars,
+                                    #~ bounds=self.par_bounds,
+                                    #~ **kwargs)
+#~ 
+            #~ i += 1
+#~ 
+        #~ if fmin > 0 and (self.par_bounds[0][0] <= 0
+                         #~ and self.par_bounds[0][1] >= 0):
+            #~ # null hypothesis is part of minimisation, fit should be negative
+            #~ if abs(fmin) > kwargs["pgtol"]:
+                #~ # SPAM only if the distance is large
+                #~ logger.error("Fitter returned positive value, "
+                             #~ "force to be zero at null-hypothesis. "
+                             #~ "Minimum found {0} with fmin {1}".format(
+                                 #~ xmin, fmin))
+            #~ fmin = 0
+            #~ xmin[0] = 0.
+#~ 
+        #~ if self._N > 0 and abs(xmin[0]) > _rho_max * self._n:
+            #~ logger.error(("nsources > {0:7.2%} * {1:6d} selected events, "
+                          #~ "fit-value nsources = {2:8.1f}").format(
+                              #~ _rho_max, self._n, xmin[0]))
+#~ 
+        #~ xmin = dict([(par, xi) for par, xi in zip(self.params, xmin)])
+#~ 
+        #~ # Separate over and underfluctuations
+        #~ fmin *= -np.sign(xmin["nsources"])
+#~ 
+        #~ return fmin, xmin
 
     def fit_source_loc(self, src_ra, src_dec, size, seed, **kwargs):
         """Minimize the negative log-Likelihood around interesting position.

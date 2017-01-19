@@ -26,6 +26,7 @@ import logging
 
 # scipy-project imports
 import numpy as np
+import numpy.ma as ma
 import scipy.interpolate
 from scipy.stats import norm
 
@@ -305,10 +306,15 @@ class ClassicLLH(NullModel):
         source events among different samples.
 
         """
+        dec = np.atleast_1d(dec)
+        mask = (np.sin(dec) < self.sinDec_bins[0])|(np.sin(dec) > self.sinDec_bins[-1])
 
-        if (np.sin(dec) < self.sinDec_bins[0]
-                or np.sin(dec) > self.sinDec_bins[-1]):
+        if (np.all(mask) and (len(dec) == 1)):
             return 0., None
+
+        #~ if (np.sin(dec) < self.sinDec_bins[0]
+                #~ or np.sin(dec) > self.sinDec_bins[-1]):
+            #~ return 0., None
 
         return self._spl_effA(np.sin(dec)), None
 
@@ -343,22 +349,22 @@ class ClassicLLH(NullModel):
             ExtendedLLH is used as model
 
         """
+        #~ src_ra=np.atleast_1d(src_ra)
+        #~ src_dec=np.atleast_1d(src_dec)
         src_sigma=kwargs.pop("src_sigma", np.zeros_like(src_ra))
-        if not np.allclose(src_sigma, np.zeros_like(src_sigma)):
-            print("Setting source extension src_sigma has no effect! Use ExtendedLLH instead.")
+        
+        if np.allclose(src_sigma, np.zeros_like(src_sigma)):
+            print("No Source extension given, results will be PointLLH instead of ExtendedLLH.")
         cos_ev = np.sqrt(1. - ev["sinDec"]**2)
-        cosDist = [np.cos(src_ra[i] - ev["ra"])
-                            * np.cos(src_dec[i]) * cos_ev
-                          + np.sin(src_dec[i]) * ev["sinDec"] for i in range(len(src_ra))]
+        cosDist = np.array([np.cos(src_ra_i - ev["ra"]) * np.cos(src_dec_i) * cos_ev
+                          + np.sin(src_dec_i) * ev["sinDec"] for src_ra_i,src_dec_i in zip(src_ra, src_dec)])
 
         # handle possible floating precision errors
         for cosDist_i in cosDist:
             cosDist_i[np.isclose(cosDist_i, np.ones_like(cosDist_i)) & (cosDist_i > np.ones_like(cosDist_i))]=1.
         dist = np.arccos(cosDist)
-        print("cosDist", np.shape(cosDist))
-
-        return (1./2./np.pi/ev["sigma"]**2
-                * np.exp(-dist**2 / 2. / ev["sigma"]**2))
+        return [1./2./np.pi/np.array(ev["sigma"])**2
+        * np.exp(-np.array(dist_i)**2 / 2. / np.array(ev["sigma"])**2) for dist_i in dist]
 
     def weight(self, ev, **params):
         r"""For classicLLH, no weighting of events
@@ -807,7 +813,25 @@ class PowerLawLLH(WeightLLH):
             Gradient at given point(s).
 
         """
+        dec = np.atleast_1d(dec)
+        mask = (np.sin(dec) < self.sinDec_bins[0])|(np.sin(dec) > self.sinDec_bins[-1])
+        #if np.any(mask):
+        #    logger.warn('{0:3d} of {1:3d} sources outside of data declination range!'.format(np.count_nonzero(mask),len(mask)))
 
+        if (np.all(mask) and (len(dec) == 1)):
+            return 0., None
+
+        gamma = params["gamma"]
+
+        val = np.exp(self._spl_effA(np.sin(dec), gamma, grid=False, dy=0.))
+        grad = val * self._spl_effA(np.sin(dec), gamma, grid=False, dy=1.)
+
+        #set the effA and gradient of all sources outside the bin range to 0
+        val[mask] = 0.
+        grad[mask] = 0.
+
+        return val, dict(gamma=grad)
+        """
         if (np.sin(dec) < self.sinDec_bins[0]
                 or np.sin(dec) > self.sinDec_bins[-1]):
             return 0., None
@@ -817,7 +841,7 @@ class PowerLawLLH(WeightLLH):
         val = np.exp(self._spl_effA(np.sin(dec), gamma, grid=False, dy=0.))
         grad = val * self._spl_effA(np.sin(dec), gamma, grid=False, dy=1.)
 
-        return val, dict(gamma=grad)
+        return val, dict(gamma=grad)"""
 
 
 class EnergyLLH(PowerLawLLH):
@@ -877,17 +901,32 @@ class ExtendedLLH(PowerLawLLH):
             Spatial signal probability for each event
 
         """
+        #~ src_ra=np.atleast_1d(src_ra)
+        #~ src_dec=np.atleast_1d(src_dec)
+        
+        if not np.allclose(src_sigma, np.zeros_like(src_sigma)):
+            print("Setting source extension src_sigma has no effect! Use ExtendedLLH instead.")
         cos_ev = np.sqrt(1. - ev["sinDec"]**2)
-        cosDist = (np.cos(src_ra - ev["ra"])
-                            * np.cos(src_dec) * cos_ev
-                          + np.sin(src_dec) * ev["sinDec"])
+        cosDist = np.array([np.cos(src_ra_i - ev["ra"]) * np.cos(src_dec_i) * cos_ev
+                          + np.sin(src_dec_i) * ev["sinDec"] for src_ra_i,src_dec_i in zip(src_ra, src_dec)])
 
         # handle possible floating precision errors
-        cosDist[np.isclose(cosDist, 1.) & (cosDist > 1)] = 1.
+        for cosDist_i in cosDist:
+            cosDist_i[np.isclose(cosDist_i, np.ones_like(cosDist_i)) & (cosDist_i > np.ones_like(cosDist_i))]=1.
         dist = np.arccos(cosDist)
-
-        return (1./2./np.pi/(ev["sigma"]**2+src_sigma**2)
-                * np.exp(-dist**2/2./(ev["sigma"]**2+src_sigma**2)))
+        return [1./2./np.pi/(ev["sigma"]**2+src_sigma_i**2)
+        * np.exp(-np.array(dist_i)**2 / 2. / (ev["sigma"]**2+src_sigma_i**2)) for dist_i,src_sigma_i in zip(dist,src_sigma)]
+        
+        #~ cos_ev = np.sqrt(1. - ev["sinDec"]**2)
+        #~ cosDist = (np.cos(src_ra - ev["ra"]) * np.cos(src_dec) * cos_ev
+                          #~ + np.sin(src_dec) * ev["sinDec"])
+        #~ 
+        #~ # handle possible floating precision errors
+        #~ cosDist[np.isclose(cosDist, 1.) & (cosDist > 1)] = 1.
+        #~ dist = np.arccos(cosDist)
+        #~ 
+        #~ return (1./2./np.pi/(ev["sigma"]**2+src_sigma**2)
+                #~ * np.exp(-dist**2/2./(ev["sigma"]**2+src_sigma**2)))
     
 class EnergyDistLLH(PowerLawLLH):
     r"""Likelihood using Energy Proxy and starting distance for evaluation.

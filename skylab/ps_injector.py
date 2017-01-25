@@ -412,7 +412,7 @@ class PointSourceInjector(Injector):
         if len(self.mc_arr) < 1:
             raise ValueError("Select no events at all")
 
-        print("Selected {0:d} events in total".format(len(self.mc_arr)))
+        #~ print("Selected {0:d} events in total".format(len(self.mc_arr)))
 
         self._weights()
 

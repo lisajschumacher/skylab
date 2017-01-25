@@ -350,9 +350,9 @@ class ClassicLLH(NullModel):
 
         """
         src_sigma=kwargs.pop("src_sigma", np.zeros_like(src_ra))
-        
-        if np.allclose(src_sigma, np.zeros_like(src_sigma)):
-            print("No Source extension given, results will be PointLLH instead of ExtendedLLH.")
+        if not np.allclose(src_sigma, np.zeros_like(src_sigma)):
+            print("Setting source extension src_sigma has no effect! Use ExtendedLLH instead.")
+
         cos_ev = np.sqrt(1. - ev["sinDec"]**2)
         cosDist = np.array([np.cos(src_ra_i - ev["ra"]) * np.cos(src_dec_i) * cos_ev
                           + np.sin(src_dec_i) * ev["sinDec"] for src_ra_i,src_dec_i in zip(src_ra, src_dec)])
@@ -901,9 +901,8 @@ class ExtendedLLH(PowerLawLLH):
         """
         #~ src_ra=np.atleast_1d(src_ra)
         #~ src_dec=np.atleast_1d(src_dec)
-        
-        if not np.allclose(src_sigma, np.zeros_like(src_sigma)):
-            print("Setting source extension src_sigma has no effect! Use ExtendedLLH instead.")
+        if np.allclose(src_sigma, np.zeros_like(src_sigma)):
+            print("No Source extension given, results will be PointLLH instead of ExtendedLLH.")
         cos_ev = np.sqrt(1. - ev["sinDec"]**2)
         cosDist = np.array([np.cos(src_ra_i - ev["ra"]) * np.cos(src_dec_i) * cos_ev
                           + np.sin(src_dec_i) * ev["sinDec"] for src_ra_i,src_dec_i in zip(src_ra, src_dec)])
@@ -912,8 +911,9 @@ class ExtendedLLH(PowerLawLLH):
         for cosDist_i in cosDist:
             cosDist_i[np.isclose(cosDist_i, np.ones_like(cosDist_i)) & (cosDist_i > np.ones_like(cosDist_i))]=1.
         dist = np.arccos(cosDist)
-        return [1./2./np.pi/(ev["sigma"]**2+src_sigma_i**2)
-        * np.exp(-np.array(dist_i)**2 / 2. / (ev["sigma"]**2+src_sigma_i**2)) for dist_i,src_sigma_i in zip(dist,src_sigma)]
+        return np.array([1./2./np.pi/(ev["sigma"]**2+src_sigma_i**2)
+                        * np.exp(-np.array(dist_i)**2 / 2. / (ev["sigma"]**2+src_sigma_i**2)) 
+                        for dist_i,src_sigma_i in zip(dist,src_sigma)])
         
         #~ cos_ev = np.sqrt(1. - ev["sinDec"]**2)
         #~ cosDist = (np.cos(src_ra - ev["ra"]) * np.cos(src_dec) * cos_ev

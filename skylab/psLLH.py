@@ -473,7 +473,8 @@ class PointSourceLLH(object):
         # do not calculate values with signal below threshold
         # # # # Maybe do this with masked array? # # # # more memory, less calculations # # # # #
         s_mask = np.logical_or.reduce(self._ev_S > self.thresh_S)
-        self._ev_S = np.array([evS[s_mask] for evS in self._ev_S]) 
+        sm = self._ev_S > self.thresh_S
+        self._ev_S = np.array([evS[s_mask] for evS in self._ev_S])
         self._ev = np.array(self._ev[s_mask])
         # Check dimensions again
         assert(len(self._ev_S)==len(src_ra))

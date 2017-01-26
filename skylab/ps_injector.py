@@ -571,8 +571,10 @@ class StackingSourceInjector(PointSourceInjector):
     def sample(self, src_ra, mean_mu, poisson=True):
         
         # Initialize the arrays
-        num = np.empty(0, dtype=np.int)
-        sam_ev = np.empty(0, dtype=[('ra', '<f8'), ('dec', '<f8'), ('logE', '<f8'), ('sigma', '<f8'), ('sinDec', '<f8')])
+        #num = np.empty(0, dtype=np.int)
+        #sam_ev = np.empty(0, dtype=[('ra', '<f8'), ('dec', '<f8'), ('logE', '<f8'), ('sigma', '<f8'), ('sinDec', '<f8')])
+        num=[]
+        sampled_events = []
         self.right_ascensions = np.atleast_1d(src_ra)
         
         # If there's some mismatch, better know before sampling
@@ -588,13 +590,16 @@ class StackingSourceInjector(PointSourceInjector):
                 # Inject events for each source
                 num_temp, sam_ev_temp = inj.sample(self.right_ascensions[i], M[i], poisson=poisson).next()
                 # Enlarge the event sample
-                sam_ev.resize(len(sam_ev)+num_temp)
+                # sam_ev.resize(sum(num)+num_temp)                
                 # Add the results to what will be yielded
-                num = np.append(num, num_temp)
+                num.append(num_temp)
                 # Only add something if there is something to add
                 if num_temp>0:
-                    sam_ev[-num_temp:]=sam_ev_temp
-            self._nums = num
+                    #sam_ev[-num_temp:]=sam_ev_temp
+                    sampled_events.append(sam_ev_temp)
+            
+            self._nums = np.array(num)
+            sam_ev = np.array(sampled_events, dtype=[('ra', '<f8'), ('dec', '<f8'), ('logE', '<f8'), ('sigma', '<f8'), ('sinDec', '<f8')])
             yield sum(num), sam_ev
             
 

@@ -23,6 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from copy import deepcopy
 from itertools import product
 import logging
+#from memory_profiler import profile
 
 # scipy-project imports
 import numpy as np
@@ -470,7 +471,8 @@ class WeightLLH(ClassicLLH):
         self._w_spline_dict = dict()
 
         return
-
+    
+    #@profile
     def __call__(self, exp, mc, livetime):
         r"""In addition to *classicLLH.__call__(),
         splines for energy-declination are created as well.

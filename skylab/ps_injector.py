@@ -42,7 +42,7 @@ from collections import OrderedDict
 import numpy as np
 from numpy.lib.recfunctions import drop_fields
 import scipy.interpolate
-
+#from memory_profiler import profile
 
 # local package imports
 from . import set_pars
@@ -416,7 +416,7 @@ class PointSourceInjector(Injector):
 
         self._weights()
 
-        return
+        return 
 
     def flux2mu(self, flux):
         r"""Convert a flux to mean number of expected events.
@@ -518,90 +518,91 @@ class PointSourceInjector(Injector):
 
             yield num, sam_ev
 
-
-class StackingSourceInjector(PointSourceInjector):
-    
-    def __init__(self, gamma):
-        
-        self.inj_dict = OrderedDict()
-        self._sources = 0
-        super(StackingSourceInjector, self).__init__(gamma)
-        
-    @property
-    def sources(self):
-        return self._sources
-
-    @sources.setter
-    def sources(self, val):
-        if type(val)!=int:
-            val=np.int(np.round(val))
-            print("Set number of sources to int(val)")
-        if val < 0:
-            val = max(val, 0)
-            logger.warn("#sources has to be non-negative, now set to {}".format(val))
-        if np.fabs(val, self._sources)>1:
-            logger.warn("Decreasing or Increasing #sources by more than 1!")
-        self._sources = val
-        return
-        
-    def add_injector(self, src_dec, mc, livetime):
-        
-        self.inj_dict.update({self._sources : PointSourceInjector(self.gamma)})
-        self.inj_dict[self._sources].fill(src_dec, mc, livetime)
-        self._sources +=1
-        
-    def fill(self, src_dec, mc, livetime):
-        
-        self.declinations = np.atleast_1d(src_dec)        
-        for src_dec_i in self.declinations:
-            self.add_injector(src_dec_i, mc, livetime)
-            
-        # Get the dec-acceptance in order to weight the sources when sampling    
-        nBins=100
-        nRange=(-1., 1.)
-        n, bins = np.histogram(np.sin(mc["trueDec"]), 
-                               bins=nBins, 
-                               weights=mc["ow"]*mc["trueE"]**(-self.gamma), 
-                               range=nRange
-                              )
-        self.signal_acceptance = scipy.interpolate.InterpolatedUnivariateSpline((bins[1:] + bins[:-1]) / 2., 
-                                                                   n/np.mean(n)
-                                                                  )
-            
-    def sample(self, src_ra, mean_mu, poisson=True):
-        
-        # Initialize the arrays
-        #num = np.empty(0, dtype=np.int)
-        #sam_ev = np.empty(0, dtype=[('ra', '<f8'), ('dec', '<f8'), ('logE', '<f8'), ('sigma', '<f8'), ('sinDec', '<f8')])
-        num=[]
-        sampled_events = []
-        self.right_ascensions = np.atleast_1d(src_ra)
-        
-        # If there's some mismatch, better know before sampling
-        assert(len(self.right_ascensions)==len(self.declinations))
-        
-        # Get the source strength weighted with the expected acceptance for signal
-        M = (self.signal_acceptance(np.sin(self.declinations)) 
-             * mean_mu * self.sources 
-             / np.sum(self.signal_acceptance(np.sin(self.declinations))))
-        
-        while True:
-            for i,inj in enumerate(self.inj_dict.itervalues()):
-                # Inject events for each source
-                num_temp, sam_ev_temp = inj.sample(self.right_ascensions[i], M[i], poisson=poisson).next()
-                # Enlarge the event sample
-                # sam_ev.resize(sum(num)+num_temp)                
-                # Add the results to what will be yielded
-                num.append(num_temp)
-                # Only add something if there is something to add
-                if num_temp>0:
-                    #sam_ev[-num_temp:]=sam_ev_temp
-                    sampled_events.append(sam_ev_temp)
-            
-            self._nums = np.array(num)
-            sam_ev = np.array(sampled_events, dtype=[('ra', '<f8'), ('dec', '<f8'), ('logE', '<f8'), ('sigma', '<f8'), ('sinDec', '<f8')])
-            yield sum(num), sam_ev
-            
+#~ 
+#~ class StackingSourceInjector(PointSourceInjector):
+    #~ 
+    #~ def __init__(self, gamma):
+        #~ 
+        #~ self.inj_dict = OrderedDict()
+        #~ self._sources = 0
+        #~ super(StackingSourceInjector, self).__init__(gamma)
+        #~ 
+    #~ @property
+    #~ def sources(self):
+        #~ return self._sources
+#~ 
+    #~ @sources.setter
+    #~ def sources(self, val):
+        #~ if type(val)!=int:
+            #~ val=np.int(np.round(val))
+            #~ print("Set number of sources to int(val)")
+        #~ if val < 0:
+            #~ val = max(val, 0)
+            #~ logger.warn("#sources has to be non-negative, now set to {}".format(val))
+        #~ if np.fabs(val, self._sources)>1:
+            #~ logger.warn("Decreasing or Increasing #sources by more than 1!")
+        #~ self._sources = val
+        #~ return
+#~ 
+    #~ #@profile    
+    #~ def add_injector(self, src_dec, mc, livetime):
+        #~ 
+        #~ self.inj_dict.update({self._sources : PointSourceInjector(self.gamma)})
+        #~ self.inj_dict[self._sources].fill(src_dec, mc, livetime)
+        #~ self._sources +=1
+        #~ 
+    #~ def fill(self, src_dec, mc, livetime):
+        #~ 
+        #~ self.declinations = np.atleast_1d(src_dec)        
+        #~ for src_dec_i in self.declinations:
+            #~ self.add_injector(src_dec_i, mc, livetime)
+            #~ 
+        #~ # Get the dec-acceptance in order to weight the sources when sampling    
+        #~ nBins=100
+        #~ nRange=(-1., 1.)
+        #~ n, bins = np.histogram(np.sin(mc["trueDec"]), 
+                               #~ bins=nBins, 
+                               #~ weights=mc["ow"]*mc["trueE"]**(-self.gamma), 
+                               #~ range=nRange
+                              #~ )
+        #~ self.signal_acceptance = scipy.interpolate.InterpolatedUnivariateSpline((bins[1:] + bins[:-1]) / 2., 
+                                                                   #~ n/np.mean(n)
+                                                                  #~ )
+            #~ 
+    #~ def sample(self, src_ra, mean_mu, poisson=True):
+        #~ 
+        #~ # Initialize the arrays
+        #~ #num = np.empty(0, dtype=np.int)
+        #~ #sam_ev = np.empty(0, dtype=[('ra', '<f8'), ('dec', '<f8'), ('logE', '<f8'), ('sigma', '<f8'), ('sinDec', '<f8')])
+        #~ num=[]
+        #~ sampled_events = []
+        #~ self.right_ascensions = np.atleast_1d(src_ra)
+        #~ 
+        #~ # If there's some mismatch, better know before sampling
+        #~ assert(len(self.right_ascensions)==len(self.declinations))
+        #~ 
+        #~ # Get the source strength weighted with the expected acceptance for signal
+        #~ M = (self.signal_acceptance(np.sin(self.declinations)) 
+             #~ * mean_mu * self.sources 
+             #~ / np.sum(self.signal_acceptance(np.sin(self.declinations))))
+        #~ 
+        #~ while True:
+            #~ for i,inj in enumerate(self.inj_dict.itervalues()):
+                #~ # Inject events for each source
+                #~ num_temp, sam_ev_temp = inj.sample(self.right_ascensions[i], M[i], poisson=poisson).next()
+                #~ # Enlarge the event sample
+                #~ # sam_ev.resize(sum(num)+num_temp)                
+                #~ # Add the results to what will be yielded
+                #~ num.append(num_temp)
+                #~ # Only add something if there is something to add
+                #~ if num_temp>0:
+                    #~ #sam_ev[-num_temp:]=sam_ev_temp
+                    #~ sampled_events.append(sam_ev_temp)
+            #~ 
+            #~ self._nums = np.array(num)
+            #~ sam_ev = np.array(sampled_events, dtype=[('ra', '<f8'), ('dec', '<f8'), ('logE', '<f8'), ('sigma', '<f8'), ('sinDec', '<f8')])
+            #~ yield sum(num), sam_ev
+            #~ 
 
 class ModelInjector(PointSourceInjector):
     r"""PointSourceInjector that weights events according to a specific model

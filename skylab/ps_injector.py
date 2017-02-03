@@ -37,6 +37,7 @@ PointSourceLikelihood - Class requires the methods
 # python packages
 import logging
 from collections import OrderedDict
+import copy
 
 # scipy-project imports
 import numpy as np
@@ -517,7 +518,182 @@ class PointSourceInjector(Injector):
                 sam_ev[enum] = rotate_struct(sam_ev_i, src_ra, self.src_dec)
 
             yield num, sam_ev
+            
+class StackingSourceInjector(PointSourceInjector):
+    
+    def __init__(self, gamma):        
+        super(StackingSourceInjector, self).__init__(gamma)
+    
+    #@profile
+    def fill(self, src_dec, mc, livetime):
+        r"""Fill the Injector with MonteCarlo events selecting events around
+        the source position(s).
 
+        Parameters
+        -----------
+        src_dec : float, array-like
+            Source location(s)
+        mc : recarray, dict of recarrays with sample enum as key (MultiPointSourceLLH)
+            Monte Carlo events
+        livetime : float, dict of floats
+            Livetime per sample
+
+        """
+
+        self.src_dec = src_dec
+
+        if not isinstance(mc, dict):
+            mc = {-1: mc}
+
+        for key, mc_i in mc.iteritems():
+            # get MC event's in the selected energy and sinDec range
+            band_mask = ((np.sin(mc_i["trueDec"]) > np.sin(self._min_dec))
+                         &(np.sin(mc_i["trueDec"]) < np.sin(self._max_dec)))
+            band_mask &= ((mc_i["trueE"] / self.GeV > self.e_range[0])
+                          &(mc_i["trueE"] / self.GeV < self.e_range[1]))
+            
+        #self._weights()
+
+        return band_mask
+    
+    #@profile
+    def sample(self, src_ra, mean_mu, mc, mc_arr, poisson=True):
+        r""" Generator to get sampled events for a Point Source location.
+
+        Parameters
+        -----------
+        mean_mu : float
+            Mean number of events to sample
+
+        Returns
+        --------
+        num : int
+            Number of events
+        sam_ev : iterator
+            sampled_events for each loop iteration, either as simple array or
+            as dictionary for each sample
+
+        Optional Parameters
+        --------------------
+        poisson : bool
+            Use poisson fluctuations, otherwise sample exactly *mean_mu*
+
+        """
+        while True:
+            self.mc = mc
+            self.mc_arr = mc_arr
+            self._weights()
+            num, sam_ev = super(StackingSourceInjector, self).sample(src_ra, mean_mu, poisson=poisson).next()
+            del self.mc
+            del self.mc_arr
+            yield num, sam_ev
+            
+
+class InjectorHandler(PointSourceInjector):
+    
+    def __init__(self, gamma):
+        
+        self.inj_dict = OrderedDict()
+        self._sources = 0
+        super(InjectorHandler, self).__init__(gamma)
+        
+    @property
+    def sources(self):
+        return self._sources
+
+    @sources.setter
+    def sources(self, val):
+        if type(val)!=int:
+            val=np.int(np.round(val))
+            print("Set number of sources to int(val)")
+        if val < 0:
+            val = max(val, 0)
+            logger.warn("#sources has to be non-negative, now set to {}".format(val))
+        if np.fabs(val, self._sources)>1:
+            logger.warn("Decreasing or Increasing #sources by more than 1!")
+        self._sources = val
+        return
+
+    #@profile    
+    def add_injector(self, src_dec, mc, livetime):
+        
+        self.inj_dict.update({self._sources : {"inj" : StackingSourceInjector(self.gamma)}})
+        self.inj_dict[self._sources]["band_mask"] = self.inj_dict[self._sources]["inj"].fill(src_dec, copy.copy(mc), livetime)
+        self._sources +=1
+        
+    def reduce_mc(self):
+        print("Not yet implemented")
+        
+    def fill(self, src_dec, mc, livetime):
+        
+        if not isinstance(mc, dict):
+            self.mc = {-1: mc}
+            self.livetime = {-1: livetime}
+        else:
+            self.mc=mc
+            
+        self.declinations = np.atleast_1d(src_dec)
+        for src_dec_i in self.declinations:
+            self.add_injector(src_dec_i, mc, livetime)
+            
+        # Get the dec-acceptance in order to weight the sources when sampling    
+        nBins=100
+        nRange=(-1., 1.)
+        n, bins = np.histogram(np.sin(mc["trueDec"]), 
+                               bins=nBins, 
+                               weights=mc["ow"]*mc["trueE"]**(-self.gamma), 
+                               range=nRange
+                              )
+        self.signal_acceptance = scipy.interpolate.InterpolatedUnivariateSpline((bins[1:] + bins[:-1]) / 2., 
+                                                                   n/np.mean(n)
+                                                                  )
+            
+    def sample(self, src_ra, mean_mu, poisson=True):
+        
+        # Initialize the lists
+        num=[]
+        sampled_events = []
+        self.right_ascensions = np.atleast_1d(src_ra)
+        
+        # If there's some mismatch, better know before sampling
+        assert(len(self.right_ascensions)==len(self.declinations))
+        
+        # Get the source strength weighted with the expected acceptance for signal
+        M = (self.signal_acceptance(np.sin(self.declinations)) 
+             * mean_mu * self.sources 
+             / np.sum(self.signal_acceptance(np.sin(self.declinations))))
+        
+        while True:
+            for i,inj in enumerate(self.inj_dict.itervalues()):
+                # Prepare temporary variables
+                mc=dict()
+                mc_arr = np.empty(0, dtype=[("idx", np.int), ("enum", np.int),
+                                         ("trueE", np.float), ("ow", np.float)])
+                for key, mc_i in self.mc.iteritems():
+                    mc[key] = copy.copy(mc_i[inj["band_mask"]])
+                    N = np.count_nonzero(inj["band_mask"])
+                    mc_temp = np.empty(N, dtype=[("idx", np.int), ("enum", np.int),
+                                             ("trueE", np.float), ("ow", np.float)])
+                    mc_temp["idx"] = np.arange(N)
+                    mc_temp["enum"] = key * np.ones(N) 
+                    mc_temp["ow"] = mc[key]["ow"] * self.livetime[key] * 86400.
+                    mc_temp["trueE"] = mc[key]["trueE"]
+                    
+                    mc_arr = np.append(mc_arr, mc_temp)
+
+                # Inject events for each source
+                num_temp, sam_ev_temp = inj["inj"].sample(self.right_ascensions[i], M[i], mc, mc_arr, poisson=poisson).next()
+                # Enlarge the event sample           
+                # Add the results to what will be yielded
+                num.append(num_temp)
+                # Only add something if there is something to add
+                if num_temp>0:
+                    sampled_events.extend(sam_ev_temp)
+                #print("sampled events source {}\n".format(i), sam_ev_temp["ra"], "\n total: ", sampled_events, "\n")
+            # Convert to arrays
+            self._nums = np.array(num)
+            sam_ev = np.array(sampled_events, dtype=[('ra', '<f8'), ('dec', '<f8'), ('logE', '<f8'), ('sigma', '<f8'), ('sinDec', '<f8')])
+            yield sum(num), sam_ev
 #~ 
 #~ class StackingSourceInjector(PointSourceInjector):
     #~ 

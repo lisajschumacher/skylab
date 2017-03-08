@@ -424,8 +424,6 @@ class PointSourceLLH(object):
             dec_mask = [(self.exp["sinDec"] > min_i) & (self.exp["sinDec"] < max_i) 
                                         for min_i, max_i in zip(np.sin(min_dec), np.sin(max_dec))]
             exp_mask = np.logical_or.reduce(dec_mask)
-            # Get one mask for all events
-            # exp_mask=np.array(exp_mask, dtype=bool)
         else:
             raise ValueError("Not supported mode: {0:s}".format(self.mode))
 
@@ -1219,8 +1217,8 @@ class PointSourceLLH(object):
         src_sigma = np.atleast_1d(kwargs.pop("src_sigma", _src_sigma*np.ones_like(src_ra)))
         kwargs.setdefault("pgtol", _pgtol)
         assert(len(src_dec)==len(src_ra)==len(src_sigma))
-        if len(src_ra)>1:
-            print("Calculating Stacking LLH for {} sources".format(len(src_ra)))
+        #~ if len(src_ra)>1:
+            #~ print("Calculating Stacking LLH for {} sources".format(len(src_ra)))
         # Set all weights once for this src location, if not already cached
         self._select_events(src_ra, src_dec, src_sigma=src_sigma, inject=inject, scramble=scramble)
 
@@ -1484,7 +1482,7 @@ class PointSourceLLH(object):
                         trial_i[par] = xmin_i[par]
 
                     trials = np.append(trials, trial_i)
-
+                    #### whut. ####
                     mTS = np.bincount(trials["n_inj"], weights=trials["TS"])
                     mW = np.bincount(trials["n_inj"])
                     mTS[mW > 0] /= mW[mW > 0]
@@ -1918,8 +1916,9 @@ class MultiPointSourceLLH(PointSourceLLH):
         """
 
         # cache declination for weighting calculation
-        self._src_ra = src_ra
-        self._src_dec = src_dec
+        self._src_ra = np.atleast_1d(src_ra)
+        self._src_dec = np.atleast_1d(src_dec)
+        assert(len(self._src_dec) == len(self._src_ra))
 
         inject = kwargs.pop("inject", None)
 
@@ -1931,7 +1930,7 @@ class MultiPointSourceLLH(PointSourceLLH):
             else:
                 inj_i = inject
 
-            sam._select_events(src_ra, src_dec, inject=inj_i, **kwargs)
+            sam._select_events(np.atleast_1d(src_ra), np.atleast_1d(src_dec), inject=inj_i, **kwargs)
 
         self._n = sum([sam._n for sam in self._sams.itervalues()])
         self._N = sum([sam._N for sam in self._sams.itervalues()])

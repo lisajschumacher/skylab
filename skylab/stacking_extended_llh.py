@@ -1,3 +1,4 @@
+#!/bin/env python
 from __future__ import print_function
 
 import os
@@ -13,7 +14,7 @@ from skylab.ps_model import EnergyLLH, ExtendedLLH
 from skylab.ps_injector import *
 from skylab.utils import rotate
 
-from functions import setNewEdges, gauss, load_data
+from functions import setNewEdges, gauss, load_data, prepareDirectory
 from plot_settings import *
 
 _size=50
@@ -40,18 +41,40 @@ class StackExtendedSources(object):
 							injected into experimental data in order to
 							mimic point sources
 	"""
-	def __init__(self, basepath, detector="IC79", e_thresh=0., D=np.radians(6.), **kwargs):
+	def __init__(self, basepath, detector, e_thresh=0., D=np.radians(6.), **kwargs):
 		r"""
 		### This will be updated for being able to use multiple data sets ###
-		
+		### TODO
 		Constructor, filling the class with mc and exp data, 
 		as well as default plot settings and livetime
+		Inject events if desired
 		
 		Parameters:
-			basepath :	Where to read the data from
+			basepath :	string
+									Where to read the data from
 			
-			detector : Which detector to use
+			detector : 	string
+									Which detector to use
+
+			e_thresh : 	int
+									energy threshold for UHECR selection
+
+			D : 				float
+									Magnetic deflection parameter, usually radian(3 - 9 degrees)
+
+		Optional parameters:
+			rand : 	bool
+			size : 	int
+			scale : float
+
+			sets : 	list of strings
 			
+			inj : 	bool
+			gamma : float
+			mu : 		int
+
+			kwargs for PointSourceLLH class:
+				llh_model : 
 		"""
 		# kwargs for random source position
 		random_uhecr = kwargs.pop("rand", False)
@@ -70,13 +93,9 @@ class StackExtendedSources(object):
 		set_matplotlib_defaults()
 		
 		# Load data
-		self.mc = load_data(basepath, detector)
+		self.mc, self.exp, self.livetime = load_data(basepath, detector)
 		self.mc = np.rec.array(self.mc)
-		self.exp = load_data(basepath, detector, exp_bool=True)
-		self.exp = np.rec.array(self.exp)
-		
-		# This has to be set automatically in future
-		self.livetime = 315.506*24*3600
+		self.exp = np.rec.array(self.exp)	
 		
 		# Initialize injector
 		self.inject = None
@@ -204,23 +223,40 @@ class StackExtendedSources(object):
 
 	def fit_llh(self, **kwargs):
 		r"""
-		Thin wrapper for fitting sources
-		kwargs:
-			size :	number of sources to be fitted, 
-							number of injected sources if inj==True
-			
-			scale :	deviation from fitted and injected sources
-			
-			inj :		True: inject sources
-			
-			gamma :	Spectral index
-			
-			mu :		Mean number of nu per source
+		Thin wrapper for fitting sources, no kwargs added yet
 		"""
 		print("Fitting sources...")
-		fmin, xmin = self.ps_llh.fit_source(self.ra, self.dec, src_sigma=self.sigma, inject=self.inject)
+		fmin, xmin = self.ps_llh.fit_source(src_ra=self.ra, src_dec=self.dec, src_sigma=self.sigma, inject=self.inject)
 
 		print ("fmin: {}".format(fmin))
 		print ("xmin: {}".format(xmin))
 		
 		return fmin, xmin
+
+	def bg_trials(self, n_iter):
+		"""
+		Wrapper for do_trials function of ps_llh
+
+		Parameters:
+			n_iter : 	number of iterations
+		"""
+		self.trials = self.ps_llh.do_trials(src_ra=self.ra, src_dec=self.dec, n_iter=n_iter, src_sigma=self.sigma)
+
+	def set_save_path(self, path):
+		self.save_path = path
+		print("Savepath set to: {}".format(self.save_path)) 
+
+	def save_trials(self, job, mode=0754):
+		header=""
+		for i in self.trials.dtype.names:
+			header+=i+" "
+			   
+		savestring = os.path.join(self.save_path, "trials_job{}".format(job))
+		prepareDirectory(os.path.join(self.save_path), subs=False)
+		np.savetxt(	savestring,
+								self.trials, 
+								header=header,
+								comments=""
+							)
+		os.chmod(savestring, mode)
+		print("{} trials saved to {}".format(len(self.trials), savestring))

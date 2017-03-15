@@ -478,7 +478,6 @@ class PointSourceLLH(object):
         self._ev = np.array(self._ev[s_mask])
         # Check dimensions again
         assert(len(self._ev_S)==len(src_ra))
-
         # set number of selected events
         self._n = len(self._ev)
 
@@ -1090,7 +1089,6 @@ class PointSourceLLH(object):
             # atm only implemented for one parameter#
             w_tot_grad = src_w_grad['gamma'] / w_norm
         SoB = np.dot(src_w.transpose(), self._ev_S)/ w_norm / self._ev["B"]
-        
 
 
         w, grad_w = self.llh_model.weight(self._ev, **fit_pars)
@@ -1265,8 +1263,11 @@ class PointSourceLLH(object):
                              "force to be zero at null-hypothesis. "
                              "Minimum found {0} with fmin {1}".format(
                                  xmin, fmin))
+                
             fmin = 0
             xmin[0] = 0.
+
+            print("Found gradient to be {}".format(min_dict['grad']))
 
         if self._N > 0 and abs(xmin[0]) > _rho_max * self._n:
             logger.error(("nsources > {0:7.2%} * {1:6d} selected events, "
@@ -2076,6 +2077,11 @@ class MultiPointSourceLLH(PointSourceLLH):
                         relative detection efficiency of sample m
                         at dec_i (size=length(years) x length(sources) = (m x Q))
 
+        New implementation:
+        P(m | gamma) = sum_dec P(m, dec | gamma)
+        where sum_m sum_dec P(m, dec | gamma) == 1
+        P(m, dec | gamma) is relative detection efficiency given for specific sample m and source location dec
+
         Parameters
         -----------
         fit_pars : dict
@@ -2112,15 +2118,18 @@ class MultiPointSourceLLH(PointSourceLLH):
 
                 grad_w[i, j] = dw[par]
 
-        w_a = np.sum(w, axis=0, dtype=np.float64)                                                         #(Q)
-        grad_w_a = np.sum(grad_w, axis=0, dtype=np.float64)                                               #(p x Q)
-        
-        w_a /= w_a.sum()
-        grad_w_a /= (w_a.sum()*10**9)
         
         # normalize weights to one
-        grad_w /= np.sum(w, axis=0)
-        w /= np.sum(w, axis=0)
+        grad_w /= w.sum() #np.sum(w, axis=0)
+        w /= w.sum() #np.sum(w, axis=0)
+        
+        #~ print("w: sum m {}, sum Q {}, total sum {}".format(np.sum(w, axis=0), np.sum(w, axis=1), w.sum()))
+
+        #~ w_a = np.sum(w, axis=0, dtype=np.float64)                                                         #(Q)
+        #~ grad_w_a = np.sum(grad_w, axis=0, dtype=np.float64)                                               #(p x Q)
+        #~ 
+        #~ w_a /= w_a.sum()
+        #~ grad_w_a /= w_a.sum()
 
         #~ print("w_a", w_a)
         #~ print("grad_w_a", grad_w_a)
@@ -2138,25 +2147,35 @@ class MultiPointSourceLLH(PointSourceLLH):
         #~ print("w: ", w[np.newaxis].transpose((1,0,2)), " * ", np.sum(grad_w, axis=0)[np.newaxis])
         #~ print("= ", w[np.newaxis].transpose((1,0,2)) * np.sum(grad_w, axis=0)[np.newaxis])
         #~ grad_w_a -= np.sign(grad_w_a)*np.power(10, np.log10(np.abs(w_a[np.newaxis])) + np.log10(np.abs(np.sum(grad_w_a, axis=1)[np.newaxis].transpose())))  #(1 x Q) * (p x 1) = (p x Q)
-        grad_w_a -= w_a[np.newaxis] * np.sum(grad_w_a, axis=1)[np.newaxis].transpose()
-        grad_w -= w[np.newaxis].transpose((1,0,2)) * np.sum(grad_w, axis=0)[np.newaxis] #(m x 1 x Q) * (1 x p x Q) = (m x p x Q)
+        #~ grad_w -= w[np.newaxis].transpose((1,0,2)) * np.sum(grad_w, axis=0)[np.newaxis] #(m x 1 x Q) * (1 x p x Q) = (m x p x Q)
+        #~ grad_w_a -= w_a[np.newaxis] * np.sum(grad_w_a, axis=1)[np.newaxis].transpose()
+        w_tot = np.sum(w, axis=1)
+        grad_w_tot = np.sum(grad_w, axis=2)
+        grad_w_tot -= w_tot[np.newaxis].T * np.sum(grad_w_tot, axis=0)[np.newaxis] #(m x 1) * (1 x p) = (m x p)
+        
         #~ print("after correction: ")
         #~ print("norm grad_w axis 0 = over m", grad_w.sum(axis=0))
         #~ print("norm grad_w_a axis 1 = over Q", grad_w_a.sum(axis=1))
         # Combine the weights
-        w_tot = np.dot(w, w_a)                                                          #(m x Q) * (Q) = (m)
+        
+        #~ w_tot = np.dot(w, w_a)                                                          #(m x Q) * (Q) = (m)
         
         # calculate total gradient
         #~ print("components: ", np.tensordot(grad_w, w_a,axes=(2,0)), np.dot(w, grad_w_a.T*10**9))
         #~ print("components: ", grad_w, w_a, w, grad_w_a)
-        grad_w_tot = np.tensordot(grad_w, w_a,axes=(2,0)) + np.dot(w, grad_w_a.T*10**9)       #(m x p x Q) * (Q) + (m x Q) * (p x Q) = (m x p)
+        
+        #~ grad_w_tot = np.tensordot(grad_w, w_a,axes=(2,0)) + np.dot(w, grad_w_a.T)       #(m x p x Q) * (Q) + (m x Q) * (p x Q) = (m x p)
+        
         #~ print("grad_w_tot", grad_w_tot)
-        grad_w_tot /= w_tot.sum()
-        w_tot /= w_tot.sum()
+        
+        #~ grad_w_tot /= w_tot.sum()
+        #~ w_tot /= w_tot.sum()
         
         # normalized sum is bound to one, gradients need to account for
         # this boundary by cross-talk, should already be zero
-        grad_w_tot -= w_tot[np.newaxis].T* np.sum(grad_w_tot, axis=0)[np.newaxis]
+        
+        #~ grad_w_tot -= w_tot[np.newaxis].T* np.sum(grad_w_tot, axis=0)[np.newaxis]
+        
         #~ print("final results:")
         #~ print("grad_w: ", grad_w_tot, np.sum(grad_w_tot, axis=0))
         #~ print("w: ", w_tot, np.sum(w_tot))

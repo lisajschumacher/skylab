@@ -144,10 +144,8 @@ class ClassicLLH(NullModel):
     information of each event
 
     """
-
     sinDec_bins = _sinDec_bins
     sinDec_range = _sinDec_range
-
     _order = _1dim_order
 
     _bckg_spline = np.nan
@@ -160,6 +158,9 @@ class ClassicLLH(NullModel):
         """
 
         self.params = kwargs.pop("params", dict())
+
+        #~ self.sinDec_bins = _sinDec_bins
+        #~ self.sinDec_range = _sinDec_range
 
         # Set all attributes passed to class
         set_pars(self, **kwargs)
@@ -185,7 +186,6 @@ class ClassicLLH(NullModel):
         hist, bins = np.histogram(exp["sinDec"], density=True,
                                   bins=self.sinDec_bins,
                                   range=self.sinDec_range)
-
         # background spline
 
         # overwrite range and bins to actual bin edges
@@ -916,17 +916,6 @@ class ExtendedLLH(PowerLawLLH):
         return np.array([1./2./np.pi/(ev["sigma"]**2+src_sigma_i**2)
                         * np.exp(-np.array(dist_i)**2 / 2. / (ev["sigma"]**2+src_sigma_i**2)) 
                         for dist_i,src_sigma_i in zip(dist,src_sigma)])
-        
-        #~ cos_ev = np.sqrt(1. - ev["sinDec"]**2)
-        #~ cosDist = (np.cos(src_ra - ev["ra"]) * np.cos(src_dec) * cos_ev
-                          #~ + np.sin(src_dec) * ev["sinDec"])
-        #~ 
-        #~ # handle possible floating precision errors
-        #~ cosDist[np.isclose(cosDist, 1.) & (cosDist > 1)] = 1.
-        #~ dist = np.arccos(cosDist)
-        #~ 
-        #~ return (1./2./np.pi/(ev["sigma"]**2+src_sigma**2)
-                #~ * np.exp(-dist**2/2./(ev["sigma"]**2+src_sigma**2)))
     
 class EnergyDistLLH(PowerLawLLH):
     r"""Likelihood using Energy Proxy and starting distance for evaluation.

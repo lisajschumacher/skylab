@@ -9,7 +9,7 @@ import healpy as H
 from scipy import integrate
 from memory_profiler import profile
 
-from skylab.psLLH import PointSourceLLH
+from skylab.psLLH import PointSourceLLH, MultiPointSourceLLH
 from skylab.ps_model import EnergyLLH, ExtendedLLH
 from skylab.ps_injector import *
 from skylab.utils import rotate
@@ -41,13 +41,10 @@ class StackExtendedSources(object):
 							injected into experimental data in order to
 							mimic point sources
 	"""
-	def __init__(self, basepath, detector, e_thresh=0., D=np.radians(6.), **kwargs):
+	def __init__(self, basepath, detector, e_thresh=0., D=np.radians(6.), random_uhecr=False, **kwargs):
 		r"""
-		### This will be updated for being able to use multiple data sets ###
-		### TODO
 		Constructor, filling the class with mc and exp data, 
-		as well as default plot settings and livetime
-		Inject events if desired
+		as well as default settings and livetime
 		
 		Parameters:
 			basepath :	string
@@ -61,36 +58,31 @@ class StackExtendedSources(object):
 
 			D : 				float
 									Magnetic deflection parameter, usually radian(3 - 9 degrees)
+									
+			random_uhecr : 	bool
+											do or do not use random uhecr positions
 
 		Optional parameters:
-			rand : 	bool
-			size : 	int
-			scale : float
+			size : 	int, number of random uhecr events
 
 			sets : 	list of strings
-			
-			inj : 	bool
-			gamma : float
-			mu : 		int
 
 			kwargs for PointSourceLLH class:
-				llh_model : 
+				llh_model : ExtendedLLh() or EnergyLLH(), if none given, ClassicLLH() will be used
+				mode : "all", "box", "band"; used for event selection. Default is "all"
 		"""
-		# kwargs for random source position
-		random_uhecr = kwargs.pop("rand", False)
+		# kwargs for random source position, if random_uhecr == True
 		size = kwargs.pop("size", _size)
-		scale = kwargs.pop("scale", _scale)
 
 		# kwargs for uhecr
 		sets = kwargs.pop("sets", ["auger", "ta"])
 
-		# kwargs for source injection
-		inj=kwargs.pop("inj", _inj)
-		gamma=kwargs.pop("gamma", _gamma)
-		mu_per_source=kwargs.pop("mu", _mu_per_source)
+		#~ # kwargs for source injection, if inj == True
+		#~ gamma=kwargs.pop("gamma", _gamma)
+		#~ mu_per_source=kwargs.pop("mu", _mu_per_source)
 		
 		# Default plot settings
-		set_matplotlib_defaults()
+		#~ set_matplotlib_defaults()
 		
 		# Load data
 		self.mc, self.exp, self.livetime = load_data(basepath, detector)
@@ -102,19 +94,19 @@ class StackExtendedSources(object):
 
 		# Initialize source positions
 		if random_uhecr:
-			self.set_random_source_positions(size=size, scale=scale)
+			self.set_random_source_positions(size=size, scale=D)
 		else:
 			self.set_UHECR_positions(sets, D, e_thresh)
 
 		# Injection		
-		if inj==True:			
-			self.inject_sources(gamma, mu_per_source)
+		#~ if inj==True:			
+			#~ self.inject_sources(gamma, mu_per_source)
 		
 		# Initialize PS LLH
 		print("LLH setup...")
 		self.ps_llh = PointSourceLLH(self.exp, self.mc, self.livetime, **kwargs)
 
-	def set_random_source_positions(self, size, scale):
+	def set_random_source_positions(self, size, scale, inj=False):
 		r""" 
 		## Preliminary random uniform values 
 		(in future implementation:
@@ -133,7 +125,8 @@ class StackExtendedSources(object):
 		self.dec=np.random.uniform(-np.pi/2., np.pi/2., size=size)
 		self.ra=np.random.uniform(0, np.pi*2., size=size)
 		self.sigma=np.radians(np.random.uniform(scale/2., scale, size=size))
-		self.set_injection_position()
+		if inj:
+			self.set_injection_position()
 
 	def set_injection_position(self):
 		"""
@@ -149,7 +142,7 @@ class StackExtendedSources(object):
 														 ra3*scaling, dec3*scaling,
 														 self.ra, self.dec)
 														 
-	def set_UHECR_positions(self, sets, D, e_thresh, **kwargs):
+	def set_UHECR_positions(self, sets, D, e_thresh, inj=False, **kwargs):
 		"""
 		Choose the data set(s) and read the text file(s)
 		Parameters:
@@ -199,7 +192,8 @@ class StackExtendedSources(object):
 		# set source extent by formula sigma_CR = D*100EeV/E_CR
 		self.sigma = D*100./np.array(e_temp)[e_mask]
 		
-		self.set_injection_position()
+		if inj:
+			self.set_injection_position()
 
 	def inject_sources(self, gamma, mu_per_source, poisson=True):
 		r"""
@@ -221,10 +215,15 @@ class StackExtendedSources(object):
 																			 mu_per_source).next()[1]
 		print("Sampling done.")
 
-	def fit_llh(self, **kwargs):
+	def fit_source(self, inj=False, **kwargs):
 		r"""
 		Thin wrapper for fitting sources, no kwargs added yet
 		"""
+		if inj:
+			gamma=kwargs.pop("gamma", _gamma)
+			mu_per_source=kwargs.pop("mu", _mu_per_source)
+			self.inject_sources(gamma, mu_per_source)
+		
 		print("Fitting sources...")
 		fmin, xmin = self.ps_llh.fit_source(src_ra=self.ra, src_dec=self.dec, src_sigma=self.sigma, inject=self.inject)
 
@@ -236,11 +235,19 @@ class StackExtendedSources(object):
 	def bg_trials(self, n_iter):
 		"""
 		Wrapper for do_trials function of ps_llh
+		This is meant for background trials, no injection of events possible.
+		Function ""s_trial"" under construction.
 
 		Parameters:
 			n_iter : 	number of iterations
 		"""
 		self.trials = self.ps_llh.do_trials(src_ra=self.ra, src_dec=self.dec, n_iter=n_iter, src_sigma=self.sigma)
+
+	def s_trials(self):
+		r"""
+		Under construction
+		"""
+		print("under construction")
 
 	def set_save_path(self, path):
 		self.save_path = path
@@ -260,3 +267,88 @@ class StackExtendedSources(object):
 							)
 		os.chmod(savestring, mode)
 		print("{} trials saved to {}".format(len(self.trials), savestring))
+
+class MultiStackExtendedSources(StackExtendedSources):
+	r"""
+	Handling initialization and preparation for stacking multiple samples
+	"""
+	def __init__(self, basepath, detector, e_thresh=0., D=np.radians(6.), random_uhecr=False, **kwargs):
+		r"""
+		Initialize parameters, set UHECR positions
+		Initialize MultiPointSourceLLH()
+		Fill with initial MC and EXP data
+		
+		Parameters:
+			basepath :	string
+									Where to read the data from
+			
+			detector : 	string
+									Which detector to use
+
+			e_thresh : 	int
+									energy threshold for UHECR selection
+
+			D : 				float
+									Magnetic deflection parameter, usually radian(3 - 9 degrees)
+									
+			random_uhecr : 	bool
+											do or do not use random uhecr positions
+
+		Optional parameters:
+			size : 	int, number of random uhecr events
+
+			sets : 	list of strings
+
+			kwargs for PointSourceLLH class:
+				llh_model : ExtendedLLh() or EnergyLLH(), if none given, ClassicLLH() will be used
+				mode : "all", "box", "band"; used for event selection. Default is "all"
+		"""
+		# kwargs for random source position, if random_uhecr == True
+		size = kwargs.pop("size", _size)
+
+		# kwargs for uhecr
+		sets = kwargs.pop("sets", ["auger", "ta"])
+		#~ # Initialize injector
+		#~ self.inject = None
+
+		# Initialize source positions
+		if random_uhecr:
+			self.set_random_source_positions(size=size, scale=D)
+		else:
+			self.set_UHECR_positions(sets, D, e_thresh)
+
+		# Initialize MultiLLH
+		self.ps_llh = MultiPointSourceLLH()        
+		
+		# Add all samples
+		print("LLH setup...")
+		for det in detector:
+			self.add_sample(basepath, det, **kwargs)
+				
+	def add_sample(self, basepath, detector, **kwargs):
+		r"""
+		Wrapper for MultiPointSourceLLH.add_sample
+		
+		Parameters:
+		basepath :	string
+								Where to read the data from
+
+		detector : 	string
+								Which detector to use
+		
+		kwargs for PointSourceLLH class:
+				llh_model : e.g. EnergyLLH() or ExtendedLLH(), 
+										if none given, ClassicLLH() is chose
+		"""
+		mc, exp, livetime = load_data(basepath, detector)
+		mc = np.rec.array(mc)
+		exp = np.rec.array(exp)
+		self.ps_llh.add_sample(name=detector, 
+													 obj=PointSourceLLH(copy.copy(exp), 
+																							copy.copy(mc),
+																							livetime, 
+																							**kwargs
+																						 )
+													)
+		del mc
+		del exp

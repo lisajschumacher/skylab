@@ -76,6 +76,7 @@ class StackExtendedSources(object):
 
 		# kwargs for uhecr
 		sets = kwargs.pop("sets", ["auger", "ta"])
+		inj = kwargs.pop("inj", _inj)
 
 		#~ # kwargs for source injection, if inj == True
 		#~ gamma=kwargs.pop("gamma", _gamma)
@@ -91,16 +92,13 @@ class StackExtendedSources(object):
 		
 		# Initialize injector
 		self.inject = None
+		self.injector = None
 
 		# Initialize source positions
 		if random_uhecr:
-			self.set_random_source_positions(size=size, scale=D)
+			self.set_random_source_positions(size=size, scale=D, inj=inj)
 		else:
-			self.set_UHECR_positions(sets, D, e_thresh)
-
-		# Injection		
-		#~ if inj==True:			
-			#~ self.inject_sources(gamma, mu_per_source)
+			self.set_UHECR_positions(sets, D, e_thresh, inj=inj)
 		
 		# Initialize PS LLH
 		print("LLH setup...")
@@ -195,7 +193,7 @@ class StackExtendedSources(object):
 		if inj:
 			self.set_injection_position()
 
-	def inject_sources(self, gamma, mu_per_source, poisson=True):
+	def injector_setup(self, gamma):
 		r"""
 		Inject point sources
 		
@@ -203,26 +201,36 @@ class StackExtendedSources(object):
 			gamma : Spectral index
 			
 			mu_per_source : Mean number of neutrinos per source
-			
-			poisson : Poissonian mu or not
 		
 		"""
 		# Inject the events
-		print("Inject signal events by MC sampling ...")
+		print("Initializing injector")
 		self.injector = InjectorHandler(gamma)
 		self.injector.fill(self.dec, self.mc, self.livetime)
-		self.inject = self.injector.sample(self.ra_rot,
-																			 mu_per_source).next()[1]
-		print("Sampling done.")
+		#~ self.inject = self.injector.sample(self.ra_rot,
+																			 #~ mu_per_source).next()[1]
+		#~ print("Sampling done.")
 
 	def fit_source(self, inj=False, **kwargs):
 		r"""
 		Thin wrapper for fitting sources, no kwargs added yet
+
+		Parameters:
+			inj : bool
+			Do or do not inject sources
+
+		Optional Parameters:
+			gamma : Spectral index
+			
+			mu_per_source : Mean number of neutrinos per source
+		
 		"""
-		if inj:
+		if inj and self.inject==None:
 			gamma=kwargs.pop("gamma", _gamma)
 			mu_per_source=kwargs.pop("mu", _mu_per_source)
-			self.inject_sources(gamma, mu_per_source)
+			self.injector_setup(gamma)
+			self.inject = self.injector.sample(self.ra_rot,
+																			 mu_per_source).next()[1]
 		
 		print("Fitting sources...")
 		fmin, xmin = self.ps_llh.fit_source(src_ra=self.ra, src_dec=self.dec, src_sigma=self.sigma, inject=self.inject)
@@ -232,7 +240,7 @@ class StackExtendedSources(object):
 		
 		return fmin, xmin
 
-	def bg_trials(self, n_iter):
+	def do_bg_trials(self, n_iter):
 		"""
 		Wrapper for do_trials function of ps_llh
 		This is meant for background trials, no injection of events possible.
@@ -243,11 +251,18 @@ class StackExtendedSources(object):
 		"""
 		self.trials = self.ps_llh.do_trials(src_ra=self.ra, src_dec=self.dec, n_iter=n_iter, src_sigma=self.sigma)
 
-	def s_trials(self):
+	def do_s_trials(self, gamma, mu_per_source, n_iter, **kwargs):
 		r"""
-		Under construction
+		Thin wrapper for fitting sources, no kwargs added yet
 		"""
-		print("under construction")
+		if self.injector==None:
+			self.injector_setup(gamma)
+
+		self.s_trials = self.ps_llh.do_trials(src_ra=self.ra,
+																					src_dec=self.dec,
+																					n_iter=n_iter,
+																					src_sigma=self.sigma,
+																					mu=self.injector.sample(self.ra_rot, mu_per_source))
 
 	def set_save_path(self, path):
 		self.save_path = path

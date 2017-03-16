@@ -1012,6 +1012,9 @@ class PointSourceLLH(object):
 
         """
         mu_gen = kwargs.pop("mu", repeat((0, None)))
+        print("testing_")
+        for i in range(5):
+            print(mu_gen.next()[0])
 
         # values for iteration procedure
         n_iter = kwargs.pop("n_iter", _n_trials)
@@ -1022,8 +1025,11 @@ class PointSourceLLH(object):
                                                for par in self.params])
 
         samples = [mu_gen.next() for i in xrange(n_iter)]
+        #~ print("shape samples", len(samples), [sam[0] for sam in samples])
         trials["n_inj"] = [sam[0] for sam in samples]
+        print("injected: ", trials["n_inj"])
         samples = [sam[1] for sam in samples]
+        #~ print("do_trials: ", [len(sam) for sam in samples])
 
         if self.ncpu > 1 and len(samples) > self.ncpu:
             args = [(self, src_ra, src_dec, sam, True,

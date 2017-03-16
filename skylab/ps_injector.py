@@ -649,21 +649,22 @@ class InjectorHandler(PointSourceInjector):
                                                                   )
             
     def sample(self, src_ra, mean_mu, poisson=True):
-        
-        # Initialize the lists
-        num=[]
-        sampled_events = []
-        self.right_ascensions = np.atleast_1d(src_ra)
-        
-        # If there's some mismatch, better know before sampling
-        assert(len(self.right_ascensions)==len(self.declinations))
-        
-        # Get the source strength weighted with the expected acceptance for signal
-        M = (self.signal_acceptance(np.sin(self.declinations)) 
-             * mean_mu * self.sources 
-             / np.sum(self.signal_acceptance(np.sin(self.declinations))))
-        
+
         while True:
+            # Initialize the lists
+            num=[]
+            sampled_events = []
+            self.right_ascensions = np.atleast_1d(src_ra)
+            
+            # If there's some mismatch, better know before sampling
+            assert(len(self.right_ascensions)==len(self.declinations))
+            
+            # Get the source strength weighted with the expected acceptance for signal
+            M = (self.signal_acceptance(np.sin(self.declinations)) 
+                 * mean_mu * self.sources 
+                 / np.sum(self.signal_acceptance(np.sin(self.declinations))))
+        
+        
             for i,inj in enumerate(self.inj_dict.itervalues()):
                 # Prepare temporary variables
                 mc=dict()

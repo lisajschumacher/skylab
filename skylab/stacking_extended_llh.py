@@ -253,102 +253,18 @@ class StackExtendedSources(object):
 		self.save_path = path
 		print("Savepath set to: {}".format(self.save_path)) 
 
-	def save_trials(self, job, mode=0754):
+	def save_trials(self, trials, job, mode=0754):
 		header=""
-		for i in self.trials.dtype.names:
+		for i in trials.dtype.names:
 			header+=i+" "
 			   
 		savestring = os.path.join(self.save_path, "trials_job{}".format(job))
 		prepareDirectory(os.path.join(self.save_path), subs=False)
 		np.savetxt(	savestring,
-								self.trials, 
+								trials, 
 								header=header,
 								comments=""
 							)
 		os.chmod(savestring, mode)
-		print("{} trials saved to {}".format(len(self.trials), savestring))
+		print("{} trials saved to {}".format(len(trials), savestring))
 
-class MultiStackExtendedSources(StackExtendedSources):
-	r"""
-	Handling initialization and preparation for stacking multiple samples
-	"""
-	def __init__(self, basepath, detector, e_thresh=0., D=np.radians(6.), random_uhecr=False, **kwargs):
-		r"""
-		Initialize parameters, set UHECR positions
-		Initialize MultiPointSourceLLH()
-		Fill with initial MC and EXP data
-		
-		Parameters:
-			basepath :	string
-									Where to read the data from
-			
-			detector : 	string
-									Which detector to use
-
-			e_thresh : 	int
-									energy threshold for UHECR selection
-
-			D : 				float
-									Magnetic deflection parameter, usually radian(3 - 9 degrees)
-									
-			random_uhecr : 	bool
-											do or do not use random uhecr positions
-
-		Optional parameters:
-			size : 	int, number of random uhecr events
-
-			sets : 	list of strings
-
-			kwargs for PointSourceLLH class:
-				llh_model : ExtendedLLh() or EnergyLLH(), if none given, ClassicLLH() will be used
-				mode : "all", "box", "band"; used for event selection. Default is "all"
-		"""
-		# kwargs for random source position, if random_uhecr == True
-		size = kwargs.pop("size", _size)
-
-		# kwargs for uhecr
-		sets = kwargs.pop("sets", ["auger", "ta"])
-		#~ # Initialize injector
-		#~ self.inject = None
-
-		# Initialize source positions
-		if random_uhecr:
-			self.set_random_source_positions(size=size, scale=D)
-		else:
-			self.set_UHECR_positions(sets, D, e_thresh)
-
-		# Initialize MultiLLH
-		self.ps_llh = MultiPointSourceLLH()        
-		
-		# Add all samples
-		print("LLH setup...")
-		for det in detector:
-			self.add_sample(basepath, det, **kwargs)
-				
-	def add_sample(self, basepath, detector, **kwargs):
-		r"""
-		Wrapper for MultiPointSourceLLH.add_sample
-		
-		Parameters:
-		basepath :	string
-								Where to read the data from
-
-		detector : 	string
-								Which detector to use
-		
-		kwargs for PointSourceLLH class:
-				llh_model : e.g. EnergyLLH() or ExtendedLLH(), 
-										if none given, ClassicLLH() is chose
-		"""
-		mc, exp, livetime = load_data(basepath, detector)
-		mc = np.rec.array(mc)
-		exp = np.rec.array(exp)
-		self.ps_llh.add_sample(name=detector, 
-													 obj=PointSourceLLH(copy.copy(exp), 
-																							copy.copy(mc),
-																							livetime, 
-																							**kwargs
-																						 )
-													)
-		del mc
-		del exp

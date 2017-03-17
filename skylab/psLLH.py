@@ -85,7 +85,7 @@ _n_iter = 1000
 _n_trials = int(1e5)
 _nside = 128
 _nsource = 15.
-_nsource_bounds = (0., 1000.)
+_nsource_bounds = (0., 5000.)
 _nsource_rho = 0.9
 _out_print = 0.1
 _pgtol = 1.e-3
@@ -462,7 +462,7 @@ class PointSourceLLH(object):
                                     self.llh_model.background(inject),
                                     usemask=False))
             self._N += len(inject)
-            print(len(inject))
+            #~ print(len(inject))
 
         # calculate signal term
         self._ev_S = self.llh_model.signal(src_ra, src_dec, self._ev, src_sigma=src_sigma)
@@ -1012,9 +1012,9 @@ class PointSourceLLH(object):
 
         """
         mu_gen = kwargs.pop("mu", repeat((0, None)))
-        print("testing_")
-        for i in range(5):
-            print(mu_gen.next()[0])
+        #~ print("testing_")
+        #~ for i in range(5):
+            #~ print(mu_gen.next()[0])
 
         # values for iteration procedure
         n_iter = kwargs.pop("n_iter", _n_trials)
@@ -1027,7 +1027,7 @@ class PointSourceLLH(object):
         samples = [mu_gen.next() for i in xrange(n_iter)]
         #~ print("shape samples", len(samples), [sam[0] for sam in samples])
         trials["n_inj"] = [sam[0] for sam in samples]
-        print("injected: ", trials["n_inj"])
+        #~ print("injected: ", trials["n_inj"])
         samples = [sam[1] for sam in samples]
         #~ print("do_trials: ", [len(sam) for sam in samples])
 
@@ -1475,13 +1475,15 @@ class PointSourceLLH(object):
                       "inject increasing number of events "
                       "starting with {0:d} events...".format(n_inj + 1))
 
-                n_inj = int(np.mean(trials["n_inj"])) if len(trials) > 0 else 0
+                #~ n_inj = int(np.mean(trials["n_inj"])) if len(trials) > 0 else 0
+                n_inj = np.mean(trials["n_inj"]) if len(trials) > 0 else 0
                 while True:
-                    n_inj, sample = inj.sample(src_ra, n_inj + 1, poisson=False).next()
+                    n_inj, sample = inj.sample(src_ra, n_inj + 1./len(src_dec), poisson=False).next()
 
                     TS_i, xmin_i = self.fit_source(src_ra, src_dec,
                                                    inject=sample,
-                                                   scramble=True)
+                                                   scramble=True,
+                                                   **kwargs)
 
                     trial_i = np.empty((1, ), dtype=trials.dtype)
                     trial_i["n_inj"] = n_inj
@@ -1507,6 +1509,7 @@ class PointSourceLLH(object):
                 print()
 
                 # do trials around active region
+                #~ print(kwargs)
                 trials = np.append(trials,
                                    self.do_trials(src_ra, src_dec, n_iter=n_iter,
                                                   mu=inj.sample(src_ra, mu_eff),
@@ -1601,10 +1604,14 @@ class PointSourceLLH(object):
             raise ValueError("alpha, beta, and (if given) TSval must have "
                              " same length!")
 
+        src_dec = np.atleast_1d(src_dec)
+        src_ra = np.atleast_1d(src_ra)
+        assert(len(src_dec) == len(src_ra))
+        
         # setup source injector
         inj.fill(src_dec, mc, self.livetime)
 
-        print("Estimate Sensitivity for declination {0:5.1f} deg".format(
+        print("Estimate Sensitivity for declination(s) {} deg".format(
                 np.degrees(src_dec)))
 
         # result list

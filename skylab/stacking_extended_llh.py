@@ -207,9 +207,6 @@ class StackExtendedSources(object):
 		print("Initializing injector")
 		self.injector = InjectorHandler(gamma)
 		self.injector.fill(self.dec, self.mc, self.livetime)
-		#~ self.inject = self.injector.sample(self.ra_rot,
-																			 #~ mu_per_source).next()[1]
-		#~ print("Sampling done.")
 
 	def fit_source(self, inj=False, **kwargs):
 		r"""

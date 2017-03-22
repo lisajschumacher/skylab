@@ -85,7 +85,7 @@ _n_iter = 1000
 _n_trials = int(1e5)
 _nside = 128
 _nsource = 15.
-_nsource_bounds = (0., 5000.)
+_nsource_bounds = (0., 10000.)
 _nsource_rho = 0.9
 _out_print = 0.1
 _pgtol = 1.e-3
@@ -1476,15 +1476,16 @@ class PointSourceLLH(object):
                       "starting with {0:d} events...".format(n_inj + 1))
 
                 #~ n_inj = int(np.mean(trials["n_inj"])) if len(trials) > 0 else 0
-                n_inj = np.mean(trials["n_inj"]) if len(trials) > 0 else 0
+                n_inj = np.mean(trials["n_inj"]) if len(trials) > 0 else len(src_dec)*0.5
                 while True:
-                    n_inj, sample = inj.sample(src_ra, n_inj + 1./len(src_dec), poisson=False).next()
+                    n_inj, sample = inj.sample(src_ra, n_inj + 1, poisson=False).next()
+                    print( "injected ", n_inj)
 
                     TS_i, xmin_i = self.fit_source(src_ra, src_dec,
                                                    inject=sample,
                                                    scramble=True,
                                                    **kwargs)
-
+                    print("fitted ", TS_i)
                     trial_i = np.empty((1, ), dtype=trials.dtype)
                     trial_i["n_inj"] = n_inj
                     trial_i["TS"] = TS_i
@@ -1496,12 +1497,16 @@ class PointSourceLLH(object):
                     mTS = np.bincount(trials["n_inj"], weights=trials["TS"])
                     mW = np.bincount(trials["n_inj"])
                     mTS[mW > 0] /= mW[mW > 0]
+                    print("mTS", mTS, "TSval", TSval)
 
                     resid = mTS - TSval
 
+                    print((float(np.count_nonzero(resid > 0)) / len(resid)), beta)
+                    #~ print(resid)
+
                     if (float(np.count_nonzero(resid > 0)) / len(resid) > beta
                         or np.all(resid > 0)):
-                        mu_eff = len(mTS) * beta
+                        mu_eff = len(mTS) * beta #*1./len(src_dec)
 
                         break
 
@@ -1569,6 +1574,7 @@ class PointSourceLLH(object):
                                 dtype=np.float) / len(trials)
                 mu_eff_min = np.log(1. / (1. - p_bckg))
                 mu_eff = np.amax([mu_eff, mu_eff_min])
+                #mu_eff /= len(src_dec) #new
 
                 print("\tDo {0:6d} trials with mu = {1:6.2f} events".format(
                             n_iter, mu_eff))
@@ -1689,7 +1695,7 @@ class PointSourceLLH(object):
                        for mu_flux_i in mu_flux])
 
         result = dict(flux=flux, mu=mu_flux, TSval=TS, alpha=alpha, beta=beta,
-                      fit=fit, trials=trials, weights=w)
+                      fit=fit, trials=trials, weights=w, nsources=len(src_dec))
 
         return result
 

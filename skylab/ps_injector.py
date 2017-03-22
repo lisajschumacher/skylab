@@ -671,7 +671,8 @@ class InjectorHandler(PointSourceInjector):
                 acc += s(np.sin(self.declinations))
             acc /= sum(acc)
             assert(np.isclose(sum(acc),1.))
-            M = acc * mean_mu * self.sources        
+            M = acc * mean_mu * self.sources / (1.*len(src_ra))
+            #~ print(M)
         
             for i,inj in enumerate(self.inj_dict.itervalues()):
                 
@@ -690,7 +691,6 @@ class InjectorHandler(PointSourceInjector):
                     mc_temp["trueE"] = mc[key]["trueE"]
                     
                     mc_arr = np.append(mc_arr, mc_temp)
-
                 # Inject events for each source
                 num_temp, sam_ev_temp = inj["inj"].sample(self.right_ascensions[i], M[i], mc, mc_arr, poisson=poisson).next()
                 

@@ -136,9 +136,9 @@ class StackExtendedSources(object):
 		dec3=np.pi/2.-abs(np.random.normal(scale=self.sigma))
 		ra3=np.random.uniform(0, np.pi*2.)
 		scaling = np.ones_like(self.dec)
-		self.ra_rot, self.dec_rot = rotate(0.*scaling, np.pi/2.*scaling, 
-														 ra3*scaling, dec3*scaling,
-														 self.ra, self.dec)
+		self.ra_rot, self.dec_rot = rotate(0.*scaling, np.pi/2.*scaling,
+											 self.ra, self.dec, 
+											 ra3*scaling, dec3*scaling)
 														 
 	def set_UHECR_positions(self, sets, D, e_thresh, inj=False, **kwargs):
 		"""

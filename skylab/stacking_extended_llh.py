@@ -176,6 +176,27 @@ class StackExtendedSources(object):
 		print("LLH setup...")
 		self.ps_llh = PointSourceLLH(self.exp, self.mc, self.livetime, **kwargs)
 
+	def set_random_source_positions(self, size, scale, inj=False):
+		r""" 
+		## Preliminary random uniform values 
+		(in future implementation:
+			sources according to UHECR measurement acceptance)##
+		
+		Sample random source positions (dec,ra) and extensions (sigma)
+		
+		Parameters:
+			size :	size of the random samples
+			
+			scale :	shift of neutrino source position in radian,
+							with respect to the random UHECR position
+							- equivalent to source extent in set_UHECR_position()
+							(kind of)
+		"""
+		self.dec=np.random.uniform(-np.pi/2., np.pi/2., size=size)
+		self.ra=np.random.uniform(0, np.pi*2., size=size)
+		self.sigma=np.radians(np.random.uniform(scale/2., scale, size=size))
+		if inj:
+			self.set_injection_position()
 
 	def injector_setup(self, gamma):
 		r"""

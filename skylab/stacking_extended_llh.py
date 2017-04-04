@@ -24,6 +24,80 @@ _inj=False
 _gamma=2.
 _delta_ang=np.radians(10.)
 
+def set_injection_position(dec, ra, sigma):
+	"""
+	Find a source position some degree away from assumed source position given by self.dec/ra.
+	Deviation chosen using sigma set in set_UHECR_positions/random_source_positions.
+	Needed for injection of sources governed by PointSourceLLH.
+	"""
+	dec = np.atleast_1d(dec)
+	ra = np.atleast_1d(ra)
+	sigma = np.atleast_1d(sigma)	
+	assert(len(dec)==len(ra)==len(sigma))
+	
+	dec3=np.pi/2.-abs(np.random.normal(scale=sigma))
+	ra3=np.random.uniform(0, np.pi*2.)
+	scaling = np.ones_like(dec)
+	ra_rot, dec_rot = rotate(0.*scaling, np.pi/2.*scaling,
+													 ra, dec, 
+													 ra3*scaling, dec3*scaling)
+	return dec_rot, ra_rot
+	
+def set_UHECR_positions(sets, D, e_thresh, inj=False, **kwargs):
+	"""
+	Choose the data set(s) and read the text file(s)
+	Parameters:
+		sets : ["auger", "ta"] or one of them
+		
+		D : float
+				parameter for source extent, called "D" in paper
+				usually 3 or 6 degree (but plz give in radian k?)
+
+		e_thresh : float
+							 threshold value for energy given in EeV
+	"""
+
+	if kwargs:
+		for attr, value in kwargs.iteritems():
+			print(("Unknown attribute '{:s}' (value {:s}, skipping...").format(attr, value)) 
+	
+	path = "/home/home2/institut_3b/lschumacher/phd_stuff/phd_stuff_git/phd_code/CRdata"
+	files_dict = {"auger" : {"f" : "AugerUHECR2014.txt", "data" : None}, "ta" : {"f" : "TelArrayUHECR.txt", "data" : None}}
+	dec_temp = []
+	ra_temp = []
+	e_temp = []
+	#~ print("Setting true UHECR positions...")
+	for k in sets:
+		files_dict[k]["data"] = np.genfromtxt(os.path.join(path, files_dict[k]["f"]), names=True)
+		dec_temp.extend(np.radians(files_dict[k]["data"]['dec']))
+		ra_temp.extend(np.radians(files_dict[k]["data"]['RA']))
+		if k=="ta":
+			# Implement energy shift of 13%, see paper
+			e_temp.extend(files_dict[k]["data"]['E']*(1.-0.13))
+		else:
+			e_temp.extend(files_dict[k]["data"]['E'])
+
+	# Check the threshold
+	if e_thresh > max(e_temp):
+		default = 85.
+		print("Energy threshold {:1.2f} too large, max value {:1.2f}! Set threshold to {:1.2f} EeV".format(e_thresh, max(e_temp), default))
+		e_thresh=default
+
+	# Select events above energy threshold
+	e_mask = np.where(np.array(e_temp)>=e_thresh)[0]
+	#~ print("{} events selected via energy threshold".format(len(e_mask)))
+
+	dec = np.array(dec_temp)[e_mask]
+	ra = np.array(ra_temp)[e_mask]
+	
+	# set source extent by formula sigma_CR = D*100EeV/E_CR
+	sigma = D*100./np.array(e_temp)[e_mask]
+	
+	if inj:
+		dec_rot, ra_rot = set_injection_position(dec, ra, sigma)
+		return dec, ra, sigma, dec_rot, ra_rot
+	return dec, ra, sigma
+
 class StackExtendedSources(object):
 	r"""
 	Set all relevant parameters for calculation of StackingLLH with extended sources,
@@ -41,7 +115,7 @@ class StackExtendedSources(object):
 							injected into experimental data in order to
 							mimic point sources
 	"""
-	def __init__(self, basepath, detector, e_thresh=0., D=np.radians(6.), random_uhecr=False, **kwargs):
+	def __init__(self, basepath, detector, e_thresh=0., D=np.radians(6.), **kwargs):
 		r"""
 		Constructor, filling the class with mc and exp data, 
 		as well as default settings and livetime
@@ -59,11 +133,11 @@ class StackExtendedSources(object):
 			D : 				float
 									Magnetic deflection parameter, usually radian(3 - 9 degrees)
 									
-			random_uhecr : 	bool
-											do or do not use random uhecr positions
 
 		Optional parameters:
-			size : 	int, number of random uhecr events
+			single : 	bool
+			if True, assume that only one data sample is used and set source/fitting positions accordingly
+			if False, source/fitting positions are set separately
 
 			sets : 	list of strings
 
@@ -72,7 +146,7 @@ class StackExtendedSources(object):
 				mode : "all", "box", "band"; used for event selection. Default is "all"
 		"""
 		# kwargs for random source position, if random_uhecr == True
-		size = kwargs.pop("size", _size)
+		single = kwargs.pop("single", False)
 
 		# kwargs for uhecr
 		sets = kwargs.pop("sets", ["auger", "ta"])
@@ -95,103 +169,13 @@ class StackExtendedSources(object):
 		self.injector = None
 
 		# Initialize source positions
-		if random_uhecr:
-			self.set_random_source_positions(size=size, scale=D, inj=inj)
-		else:
-			self.set_UHECR_positions(sets, D, e_thresh, inj=inj)
+		if single:
+			self.dec, self.ra, self.sigma, self.dec_rot, self.ra_rot = set_UHECR_positions(sets, D, e_thresh, inj=inj)
 		
 		# Initialize PS LLH
 		print("LLH setup...")
 		self.ps_llh = PointSourceLLH(self.exp, self.mc, self.livetime, **kwargs)
 
-	def set_random_source_positions(self, size, scale, inj=False):
-		r""" 
-		## Preliminary random uniform values 
-		(in future implementation:
-			sources according to UHECR measurement acceptance)##
-		
-		Sample random source positions (dec,ra) and extensions (sigma)
-		
-		Parameters:
-			size :	size of the random samples
-			
-			scale :	shift of neutrino source position in radian,
-							with respect to the random UHECR position
-							- equivalent to source extent in set_UHECR_position()
-							(kind of)
-		"""
-		self.dec=np.random.uniform(-np.pi/2., np.pi/2., size=size)
-		self.ra=np.random.uniform(0, np.pi*2., size=size)
-		self.sigma=np.radians(np.random.uniform(scale/2., scale, size=size))
-		if inj:
-			self.set_injection_position()
-
-	def set_injection_position(self):
-		"""
-		Find a source position some degree away from assumed source position given by self.dec/ra.
-		Deviation chosen using self.sigma set in set_UHECR_positions/random_source_positions.
-		Needed for injection of sources governed by PointSourceLLH.
-		"""
-		
-		dec3=np.pi/2.-abs(np.random.normal(scale=self.sigma))
-		ra3=np.random.uniform(0, np.pi*2.)
-		scaling = np.ones_like(self.dec)
-		self.ra_rot, self.dec_rot = rotate(0.*scaling, np.pi/2.*scaling, 
-														 ra3*scaling, dec3*scaling,
-														 self.ra, self.dec)
-														 
-	def set_UHECR_positions(self, sets, D, e_thresh, inj=False, **kwargs):
-		"""
-		Choose the data set(s) and read the text file(s)
-		Parameters:
-			sets : ["auger", "ta"] or one of them
-			
-			D : float
-					parameter for source extent, called "D" in paper
-					usually 3 or 6 degree (but plz give in radian k?)
-
-			e_thresh : float
-								 threshold value for energy given in EeV
-		"""
-
-		if kwargs:
-			for attr, value in kwargs.iteritems():
-				print(("Unknown attribute '{:s}' (value {:s}, skipping...").format(attr, value)) 
-		
-		path = "/home/home2/institut_3b/lschumacher/phd_stuff/phd_stuff_git/phd_code/CRdata"
-		files_dict = {"auger" : {"f" : "AugerUHECR2014.txt", "data" : None}, "ta" : {"f" : "TelArrayUHECR.txt", "data" : None}}
-		dec_temp = []
-		ra_temp = []
-		e_temp = []
-		print("Setting true UHECR positions...")
-		for k in sets:
-			files_dict[k]["data"] = np.genfromtxt(os.path.join(path, files_dict[k]["f"]), names=True)
-			dec_temp.extend(np.radians(files_dict[k]["data"]['dec']))
-			ra_temp.extend(np.radians(files_dict[k]["data"]['RA']))
-			if k=="ta":
-				# Implement energy shift of 13%, see paper
-				e_temp.extend(files_dict[k]["data"]['E']*(1.-0.13))
-			else:
-				e_temp.extend(files_dict[k]["data"]['E'])
-
-		# Check the threshold
-		if e_thresh > max(e_temp):
-			default = 85.
-			print("Energy threshold {:1.2f} too large, max value {:1.2f}! Set threshold to {:1.2f} EeV".format(e_thresh, max(e_temp), default))
-			e_thresh=default
-
-		# Select events above energy threshold
-		e_mask = np.where(np.array(e_temp)>=e_thresh)[0]
-		print("{} events selected via energy threshold".format(len(e_mask)))
-
-		self.dec = np.array(dec_temp)[e_mask]
-		self.ra = np.array(ra_temp)[e_mask]
-		
-		# set source extent by formula sigma_CR = D*100EeV/E_CR
-		self.sigma = D*100./np.array(e_temp)[e_mask]
-		
-		if inj:
-			self.set_injection_position()
 
 	def injector_setup(self, gamma):
 		r"""
@@ -206,7 +190,7 @@ class StackExtendedSources(object):
 		# Inject the events
 		print("Initializing injector")
 		self.injector = InjectorHandler(gamma)
-		self.injector.fill(self.dec, self.mc, self.livetime)
+		self.injector.fill(self.dec_rot, self.mc, self.livetime)
 
 	def fit_source(self, inj=False, **kwargs):
 		r"""

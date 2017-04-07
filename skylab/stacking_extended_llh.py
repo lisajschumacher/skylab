@@ -15,7 +15,7 @@ from skylab.ps_injector import *
 from skylab.utils import rotate
 
 from functions import setNewEdges, gauss, load_data, prepareDirectory
-from mystyle.plot_settings import *
+from plot_settings import *
 
 _size=50
 _scale=np.radians(6)

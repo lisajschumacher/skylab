@@ -30,7 +30,7 @@ import logging
 import multiprocessing
 import sys
 import time
-#from memory_profiler import profile
+from memory_profiler import profile
 
 # scipy-project imports
 import healpy as hp
@@ -206,6 +206,7 @@ class PointSourceLLH(object):
     _src_ra = _src_ra
     _src_dec = _src_dec
 
+    #@profile
     def __init__(self, exp, mc, livetime,
                  scramble=True, upscale=False, **kwargs):
         r"""Constructor of `PointSourceLikelihood`.
@@ -982,7 +983,7 @@ class PointSourceLLH(object):
             sys.stdout.flush()
 
         return
-
+    #@profile
     def do_trials(self, src_ra, src_dec, **kwargs):
         r"""Calculation of scrambled trials.
 
@@ -1012,9 +1013,6 @@ class PointSourceLLH(object):
 
         """
         mu_gen = kwargs.pop("mu", repeat((0, None)))
-        #~ print("testing_")
-        #~ for i in range(5):
-            #~ print(mu_gen.next()[0])
 
         # values for iteration procedure
         n_iter = kwargs.pop("n_iter", _n_trials)
@@ -1025,11 +1023,8 @@ class PointSourceLLH(object):
                                                for par in self.params])
 
         samples = [mu_gen.next() for i in xrange(n_iter)]
-        #~ print("shape samples", len(samples), [sam[0] for sam in samples])
         trials["n_inj"] = [sam[0] for sam in samples]
-        #~ print("injected: ", trials["n_inj"])
         samples = [sam[1] for sam in samples]
-        #~ print("do_trials: ", [len(sam) for sam in samples])
 
         if self.ncpu > 1 and len(samples) > self.ncpu:
             args = [(self, src_ra, src_dec, sam, True,
@@ -1109,6 +1104,9 @@ class PointSourceLLH(object):
         xmask = alpha > aval
 
         # function value, log1p for OK, otherwise quadratic taylor
+        # Plan: do something like this here:
+        # ind_split = n.arange(0, len(arr), 10)
+        # lh = n.log10(n.multiply.reduceat(arr, ind_split))
         funval = np.empty_like(alpha, dtype=np.float)
         funval[xmask] = np.log1p(alpha[xmask])
         funval[~xmask] = (np.log1p(aval)
@@ -2052,7 +2050,7 @@ class MultiPointSourceLLH(PointSourceLLH):
 
         return np.array([np.amin(sinDec_range[:, 0]),
                          np.amax(sinDec_range[:, 1])])
-
+    #@profile
     def add_sample(self, name, obj):
         r"""Add a PointSourceLLH object to the sample.
 

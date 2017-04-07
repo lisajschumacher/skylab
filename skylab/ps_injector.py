@@ -43,7 +43,7 @@ import copy
 import numpy as np
 from numpy.lib.recfunctions import drop_fields
 from scipy.interpolate import InterpolatedUnivariateSpline
-#from memory_profiler import profile
+from memory_profiler import profile
 
 # local package imports
 from . import set_pars
@@ -623,8 +623,9 @@ class InjectorHandler(PointSourceInjector):
         self._sources +=1
         
     def reduce_mc(self):
-        print("Not yet implemented")
-        
+        raise("Not yet implemented")
+
+    #@profile    
     def fill(self, src_dec, mc, livetime):
         
         if not isinstance(mc, dict):
@@ -665,7 +666,7 @@ class InjectorHandler(PointSourceInjector):
             # If there's some mismatch, better know before sampling
             assert(len(self.right_ascensions)==len(self.declinations))
             
-            #~ # Get the source strength weighted with the expected acceptance for signal
+            # Get the source strength weighted with the expected acceptance for signal
             acc = np.zeros_like(self.declinations)
             for s in self.signal_acceptance:
                 acc += s(np.sin(self.declinations))

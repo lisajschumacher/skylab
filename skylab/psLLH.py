@@ -1013,6 +1013,7 @@ class PointSourceLLH(object):
 
         """
         mu_gen = kwargs.pop("mu", repeat((0, None)))
+        return_events = kwargs.pop("return_events", False)
 
         # values for iteration procedure
         n_iter = kwargs.pop("n_iter", _n_trials)
@@ -1050,7 +1051,7 @@ class PointSourceLLH(object):
             trials["TS"][i] = res[0]
             for key, val in res[1].iteritems():
                 trials[key][i] = val
-
+        if return_events == True: return trials, events
         return trials
 
     def llh(self, **fit_pars):
@@ -1220,8 +1221,7 @@ class PointSourceLLH(object):
         src_sigma = np.atleast_1d(kwargs.pop("src_sigma", _src_sigma*np.ones_like(src_ra)))
         kwargs.setdefault("pgtol", _pgtol)
         assert(len(src_dec)==len(src_ra)==len(src_sigma))
-        #~ if len(src_ra)>1:
-            #~ print("Calculating Stacking LLH for {} sources".format(len(src_ra)))
+        
         # Set all weights once for this src location, if not already cached
         self._select_events(src_ra, src_dec, src_sigma=src_sigma, inject=inject, scramble=scramble)
 
@@ -1271,7 +1271,7 @@ class PointSourceLLH(object):
             fmin = 0
             xmin[0] = 0.
 
-            print("Found gradient to be {}".format(min_dict['grad']))
+            #print("Found gradient to be {}".format(min_dict['grad']))
 
         if self._N > 0 and abs(xmin[0]) > _rho_max * self._n:
             logger.error(("nsources > {0:7.2%} * {1:6d} selected events, "

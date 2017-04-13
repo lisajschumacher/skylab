@@ -36,8 +36,10 @@ PointSourceLikelihood - Class requires the methods
 
 # python packages
 import logging
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 import copy
+import os
+from functools import partial
 
 # scipy-project imports
 import numpy as np
@@ -152,7 +154,7 @@ class PointSourceInjector(Injector):
 
     """
     _src_dec = np.nan
-    _sinDec_bandwidth = 0.1
+    _sinDec_bandwidth = 0.1 # Corresponds to approx. 5.7deg
     _sinDec_range = [-1., 1.]
 
     _E0 = 1.
@@ -215,7 +217,7 @@ class PointSourceInjector(Injector):
             val[1] = min(val[1], 1)
         if np.diff(val) <= 0:
             raise ValueError("SinDec range has to be increasing")
-        self._sinDec_range = [float(val[0]), float(val[1])]
+        self._sinDec_range = np.array([float(val[0]), float(val[1])])
         return
 
     @property
@@ -516,6 +518,305 @@ class PointSourceInjector(Injector):
                 idx = sam_idx[sam_idx["enum"] == enum]["idx"]
                 sam_ev_i = np.copy(self.mc[enum][idx])
                 sam_ev[enum] = rotate_struct(sam_ev_i, src_ra, self.src_dec)
+
+            yield num, sam_ev
+
+class UHECRSourceInjector(PointSourceInjector):
+    """
+    Inject neutrino sources according to UHECR event distribution
+    Also including magnetic deflection of UHECRs such that neutrino positions are randomly smeared
+    
+    Make it working for multiple source positions!
+    
+    CANNOT be used with PointSourceLLH.weighted_sensitivity
+    CAN be used with do trials, as it samples the correct events needed for the trials
+    """
+    def __init__(self, gamma, D, e_thresh, **kwargs):
+        
+        self.set_UHECR_positions(D, e_thresh)
+        self._omega = np.pi * 4.
+        super(UHECRSourceInjector, self).__init__(gamma, **kwargs)
+        
+    @property
+    def sinDec_bandwidth(self):
+        return self._sinDec_bandwidth
+
+    @sinDec_bandwidth.setter
+    def sinDec_bandwidth(self, val):
+        if np.any(val < 0.) or np.any(val > 1):
+            logger.warn("Sin Declination bandwidth {0:2e} not valid".format(
+                            val))
+            val = np.minimum(1., np.fabs(val))
+        self._sinDec_bandwidth = np.array(val, dtype=float)
+
+        self._setup()
+
+        return
+
+    @property
+    def src_dec(self):
+        return self._src_dec
+
+    @src_dec.setter
+    def src_dec(self, val):
+        if np.any(np.fabs(val) > np.pi / 2.):
+            logger.warn("Source declination {} not in pi range".format(
+                            val[np.fabs(val) > np.pi / 2.]))
+            return
+        if (np.any(np.sin(val) < self.sinDec_range[0])
+                or np.any(np.sin(val) > self.sinDec_range[1])):
+            logger.error("Injection declination not in sinDec_range!")
+        self._src_dec = np.array(val, dtype=float)
+
+        self._setup()
+
+        return
+
+    def _setup(self):
+        r"""If one of *src_dec* or *dec_bandwidth* is changed or set, solid
+        angles and declination bands have to be re-set.
+
+        """
+
+        A, B = self._sinDec_range
+
+        m = (A - B + 2. * self.sinDec_bandwidth) / (A - B)
+        b = self.sinDec_bandwidth * (A + B) / (B - A)
+
+        sinDec = m * np.sin(self.src_dec) + b
+
+        min_sinDec = np.maximum(A, sinDec - self.sinDec_bandwidth)
+        max_sinDec = np.minimum(B, sinDec + self.sinDec_bandwidth)
+
+        self._min_dec = np.arcsin(min_sinDec)
+        self._max_dec = np.arcsin(max_sinDec)
+
+        # solid angle of selected events
+        self._omega = np.sum(2. * np.pi * (max_sinDec - min_sinDec))
+
+        return
+    
+    def set_UHECR_positions(self, D, e_thresh, **kwargs):
+        """
+        Read the UHECR text file(s)
+        Parameters:
+
+            D : float
+                    parameter for source extent, called "D" in paper
+                    usually 3 or 6 degree (but plz give in radian k?)
+
+            e_thresh : float
+                                 threshold value for energy given in EeV
+            
+        kwargs : not yet implemented
+        
+        returns : three arrays
+        dec, ra, sigma (i.e. assumed magnetic deflection)
+        """
+
+        path = "/home/home2/institut_3b/lschumacher/phd_stuff/phd_stuff_git/phd_code/CRdata"
+        files_dict = {"auger" : {"f" : "AugerUHECR2014.txt", "data" : None}, "ta" : {"f" : "TelArrayUHECR.txt", "data" : None}}
+        dec_temp = []
+        ra_temp = []
+        e_temp = []
+
+        for k,f in files_dict.iteritems():
+            f["data"] = np.genfromtxt(os.path.join(path, f["f"]), names=True)
+            dec_temp.extend(np.radians(f["data"]['dec']))
+            ra_temp.extend(np.radians(f["data"]['RA']))
+            if k=="ta":
+                # Implement energy shift of 13%, see paper
+                e_temp.extend(files_dict[k]["data"]['E']*(1.-0.13))
+            else:
+                e_temp.extend(files_dict[k]["data"]['E'])
+
+        # Check the threshold
+        if e_thresh > max(e_temp):
+            default = 85.
+            print("Energy threshold {:1.2f} too large, max value {:1.2f}! Set threshold to {:1.2f} EeV".format(e_thresh, max(e_temp), default))
+            e_thresh=default
+
+        # Select events above energy threshold
+        e_mask = np.where(np.array(e_temp)>=e_thresh)[0]
+
+        self.uhecr_dec = np.array(dec_temp)[e_mask]
+        self.uhecr_ra = np.array(ra_temp)[e_mask]
+
+        # set source extent by formula sigma_CR = D*100EeV/E_CR
+        self.uhecr_sigma = D*100./np.array(e_temp)[e_mask]
+    
+    def set_injection_position(self, rs=np.random.RandomState()):
+        """
+        Find a source position some degree away from assumed source position given by dec/ra.
+        Deviation chosen using sigma set in set_UHECR_positions.
+
+        Optional parameters :
+            rs : numpy random state
+            default is no seed
+        """
+
+        dec3=np.pi/2.-abs(rs.normal(scale=self.uhecr_sigma))
+        ra3=rs.uniform(0, np.pi*2.)
+        scaling = np.ones_like(self.uhecr_dec)
+        ra_rot, dec_rot = rotate(0.*scaling, np.pi/2.*scaling,
+                                 self.uhecr_ra, self.uhecr_dec, 
+                                 ra3*scaling, dec3*scaling)
+        return dec_rot, ra_rot
+    
+    @profile
+    def fill(self, mc, livetime):
+        r"""Fill the Injector with MonteCarlo events.
+        Calculate the acceptance
+
+        Parameters
+        -----------
+        mc : recarray, dict of recarrays with sample enum as key (MultiPointSourceLLH)
+            Monte Carlo events
+        livetime : float, dict of floats
+            Livetime per sample
+
+        """
+        
+        if isinstance(mc, dict) ^ isinstance(livetime, dict):
+            raise ValueError("mc and livetime not compatible")
+
+        self.signal_acceptance = []
+        self.mc = dict()
+        self.mc_arr = np.empty(0, dtype=[("idx", np.int), 
+                                         ("enum", np.int),
+                                         ("w", np.float)])
+                                         #("trueE", np.float), ("ow", np.float)])
+
+        if not isinstance(mc, dict):
+            mc = {-1: mc}
+            livetime = {-1: livetime}
+
+        for key, mc_i in mc.iteritems():
+            
+            n, bins = np.histogram(np.sin(mc_i["trueDec"]), 
+                                   bins=90, 
+                                   weights=mc_i["ow"]*mc_i["trueE"]**(-self.gamma)* livetime[key] * 86400., 
+                                   range=self.sinDec_range
+                                  )
+            self.signal_acceptance.append(InterpolatedUnivariateSpline((bins[1:] + bins[:-1]) / 2., n))
+            
+            self.mc[key] = mc_i
+
+            N = len(mc_i)
+            mc_arr = np.empty(N, dtype=self.mc_arr.dtype)
+            # With idx and enum we are able to find the corresponding mc event
+            mc_arr["idx"] = np.arange(N)
+            mc_arr["enum"] = key * np.ones(N)
+            # This is not yet normed with _omega
+            mc_arr["w"] = (self.mc[key]["ow"] * livetime[key] * 86400. 
+                           * self.mc[key]["trueE"]**(-self.gamma))
+
+            self.mc_arr = np.append(self.mc_arr, mc_arr)
+
+        if len(self.mc_arr) < 1:
+            raise ValueError("Select no events at all")
+
+
+        return
+    @profile
+    def sample(self, mean_mu, poisson=True):
+        r""" Generator to get sampled events for a Point Source location.
+
+        Parameters
+        -----------
+        mean_mu : float
+            Mean number of events to sample
+
+        Returns
+        --------
+        num : int
+            Number of events
+        sam_ev : iterator
+            sampled_events for each loop iteration, either as simple array or
+            as dictionary for each sample
+
+        Optional Parameters
+        --------------------
+        poisson : bool
+            Use poisson fluctuations, otherwise sample exactly *mean_mu*
+
+        """
+
+        # generate event numbers using poissonian events
+        while True: 
+            self.src_dec, self.src_ra = self.set_injection_position()
+            
+            # We get the detector acceptances on each source position for each detector
+            acc = np.zeros_like(self.src_dec)
+            # We now loop over all detectors and add up their contribution
+            for s in self.signal_acceptance:
+                acc += s(np.sin(self.src_dec))
+            acc /= np.sum(acc)
+            assert(np.isclose(np.sum(acc),1.))
+            
+            # This is now the number we want to inject on each source position
+            # The relative MC weighting is already included in the mc_array["w"] weights
+            mean_mu = acc * mean_mu            
+            
+            num = (self.random.poisson(mean_mu)
+                        if poisson else np.array(np.around(mean_mu), dtype=int))
+            #print("num", len(num))
+
+            logger.debug(("Generate number of source events: {0:3d} "+
+                          "of mean {1:5.1f}").format(np.sum(num), np.sum(mean_mu)))     
+
+            # if no events should be sampled, return nothing
+            if np.sum(num) < 1:
+                print("No events sampled")
+                yield np.sum(num), np.zeros(np.sum(num), 
+                                            dtype=[('ra', '<f8'), 
+                                                   ('dec', '<f8'), 
+                                                   ('logE', '<f8'), 
+                                                   ('sigma', '<f8'),
+                                                   ('sinDec', '<f8')]
+                                           )
+                continue
+                
+            sam_ev = defaultdict(partial(np.ndarray, 
+                                         0, 
+                                         dtype=[('ra', '<f8'), 
+                                                ('dec', '<f8'), 
+                                                ('logE', '<f8'), 
+                                                ('sigma', '<f8'), 
+                                                ('sinDec', '<f8')
+                                               ]
+                                        )
+                                )
+                                                   
+            
+            for i, (src_ra_i, src_dec_i) in enumerate(zip(self.src_ra, self.src_dec)):
+                mask = []
+                for key, mc_i in self.mc.iteritems():
+                    mask.extend(((np.sin(mc_i["trueDec"]) > np.sin(self._min_dec[i]))
+                                  &(np.sin(mc_i["trueDec"]) < np.sin(self._max_dec[i])))
+                                &((mc_i["trueE"] / self.GeV > self.e_range[0])
+                                  &(mc_i["trueE"] / self.GeV < self.e_range[1]))
+                               )
+                mask = np.array(mask, dtype=bool)
+                sam_idx = self.random.choice(self.mc_arr[mask], size=num[i], p=self.mc_arr["w"][mask]/np.sum(self.mc_arr["w"][mask]))
+                # get the events that were sampled
+                enums = np.unique(sam_idx["enum"])
+
+                if len(enums) == 1 and enums[0] < 0:
+                    raise("To DO")
+                    # only one sample, just return recarray
+                    sam_ev = np.copy(self.mc[enums[0]][sam_idx["idx"]])
+                else:                    
+                    for enum in enums:
+                        idx = sam_idx[sam_idx["enum"] == enum]["idx"]
+                        sam_ev_i = np.copy(self.mc[enum][idx])
+                        sam_ev[enum] = np.append(sam_ev[enum], 
+                                                 rotate_struct(sam_ev_i, 
+                                                               src_ra_i, 
+                                                               src_dec_i
+                                                              )
+                                                 )
+                
 
             yield num, sam_ev
             

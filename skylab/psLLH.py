@@ -1013,7 +1013,6 @@ class PointSourceLLH(object):
 
         """
         mu_gen = kwargs.pop("mu", repeat((0, None)))
-        return_events = kwargs.pop("return_events", False)
 
         # values for iteration procedure
         n_iter = kwargs.pop("n_iter", _n_trials)
@@ -1022,8 +1021,11 @@ class PointSourceLLH(object):
                                              ("TS", np.float)]
                                             + [(par, np.float)
                                                for par in self.params])
-
+        start = time.time()
         samples = [mu_gen.next() for i in xrange(n_iter)]
+        stop = time.time()
+        mins, secs = divmod(stop - start, 60)
+        print("Injection finished after {0:2d}' {1:4.2f}''".format(int(mins), int(secs)))
         trials["n_inj"] = [sam[0] for sam in samples]
         samples = [sam[1] for sam in samples]
 
@@ -1043,15 +1045,18 @@ class PointSourceLLH(object):
             del pool
 
         else:
+            start = time.time()
             result = [self.fit_source(src_ra, src_dec, inject=sam,
                                       scramble=True, **kwargs)
                       for sam in samples]
+            stop = time.time()
+            mins, secs = divmod(stop - start, 60)
+            print("Fitting finished after {0:2d}' {1:4.2f}''".format(int(mins), int(secs)))
 
         for i, res in enumerate(result):
             trials["TS"][i] = res[0]
             for key, val in res[1].iteritems():
                 trials[key][i] = val
-        if return_events == True: return trials, events
         return trials
 
     def llh(self, **fit_pars):
@@ -1101,6 +1106,9 @@ class PointSourceLLH(object):
         aval = -1. + _aval
         alpha = nsources * x
 
+        #print("alpha shape: ", np.shape(alpha))
+        #~ alpha = np.sort(alpha)
+        #print("min: ", min(abs(alpha)), "max: ", max(alpha))
         # select events close to divergence
         xmask = alpha > aval
 
@@ -1108,6 +1116,14 @@ class PointSourceLLH(object):
         # Plan: do something like this here:
         # ind_split = n.arange(0, len(arr), 10)
         # lh = n.log10(n.multiply.reduceat(arr, ind_split))
+        #~ ind_split = np.arange(0, len(alpha), 10)
+        #~ #funval = np.empty(1+np.size(xmask)-np.count_nonzero(xmask), dtype=np.float)
+        #~ #funval[xmask] = np.log1p(np.multiply.reduceat(alpha[xmask], ind_split))
+        #~ funval = np.sum(np.log1p(np.multiply.reduceat(alpha[xmask], ind_split)))
+        #~ funval += (np.log1p(aval)
+                      #~ + 1. / (1.+aval) * (alpha[~xmask] - aval)
+                      #~ - 1./2./(1.+aval)**2 * (alpha[~xmask]-aval)**2).sum()
+                      #~ 
         funval = np.empty_like(alpha, dtype=np.float)
         funval[xmask] = np.log1p(alpha[xmask])
         funval[~xmask] = (np.log1p(aval)

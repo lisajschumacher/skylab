@@ -51,7 +51,7 @@ from scipy.interpolate import InterpolatedUnivariateSpline
 
 # local package imports
 from . import set_pars
-from .utils import rotate
+from .utils import rotate, rotate_around
 
 # get module logger
 def trace(self, message, *args, **kwargs):
@@ -70,7 +70,7 @@ logger.addHandler(logging.StreamHandler())
 _deg = 4
 _ext = 3
 
-def rotate_struct(ev, ra, dec):
+def rotate_struct(ev, ra, dec, rand=False):
     r"""Wrapper around the rotate-method in skylab.utils for structured
     arrays.
 
@@ -96,6 +96,8 @@ def rotate_struct(ev, ra, dec):
     rot["ra"], rot_dec = rotate(ev["trueRa"], ev["trueDec"],
                                 ra * np.ones(len(ev)), dec * np.ones(len(ev)),
                                 ev["ra"], np.arcsin(ev["sinDec"]))
+    if rand:
+        rot["ra"], rot_dec = rotate_around(rot["ra"], rot_dec, ra * np.ones(len(ev)), dec * np.ones(len(ev)))
 
     if "dec" in names:
         rot["dec"] = rot_dec
@@ -594,9 +596,19 @@ class UHECRSourceInjector(PointSourceInjector):
         self._max_dec = np.arcsin(max_sinDec)
 
         # solid angle of selected events
-        self._omega = np.sum(2. * np.pi * (max_sinDec - min_sinDec))
+        self._omega = 2. * np.pi * (max_sinDec - min_sinDec)
 
         return
+
+    def mu2flux(self, mu, weights, omega):
+        r"""calculate flux
+
+        """
+        raw_flux = np.sum(weights*1./omega, dtype=np.float)
+
+        flux = mu *self.GeV**(1. - self.gamma) * self.E0**(2. - self.gamma) / len(self.uhecr_dec) / raw_flux
+
+        return flux
     
     def set_UHECR_positions(self, D, e_thresh, **kwargs):
         """
@@ -691,12 +703,12 @@ class UHECRSourceInjector(PointSourceInjector):
 
         for key, mc_i in mc.iteritems():
             
-            n, bins = np.histogram(np.sin(mc_i["trueDec"]), 
-                                   bins=90, 
-                                   weights=mc_i["ow"]*mc_i["trueE"]**(-self.gamma)* livetime[key] * 86400., 
-                                   range=self.sinDec_range
-                                  )
-            self.signal_acceptance.append(InterpolatedUnivariateSpline((bins[1:] + bins[:-1]) / 2., n))
+            #~ n, bins = np.histogram(np.sin(mc_i["trueDec"]), 
+                                   #~ bins=90, 
+                                   #~ weights=mc_i["ow"]*mc_i["trueE"]**(-self.gamma)* livetime[key] * 86400., 
+                                   #~ range=self.sinDec_range
+                                  #~ )
+            #~ self.signal_acceptance.append(InterpolatedUnivariateSpline((bins[1:] + bins[:-1]) / 2., n))
             
             self.mc[key] = mc_i
 
@@ -745,34 +757,47 @@ class UHECRSourceInjector(PointSourceInjector):
             self.src_dec, self.src_ra = self.set_injection_position()
             
             # We get the detector acceptances on each source position for each detector
-            acc = np.zeros_like(self.src_dec)
-            # We now loop over all detectors and add up their contribution
-            for s in self.signal_acceptance:
-                acc += s(np.sin(self.src_dec))
-            acc /= np.sum(acc)
-            assert(np.isclose(np.sum(acc),1.))
+            #~ acc = np.zeros_like(self.src_dec)
+            #~ # We now loop over all detectors and add up their contribution
+            #~ for s in self.signal_acceptance:
+                #~ acc += s(np.sin(self.src_dec))
+            #~ acc /= np.sum(acc)
+            #~ assert(np.isclose(np.sum(acc),1.))
+            #~ 
+            #~ # This is now the number we want to inject on each source position
+            #~ # The relative MC weighting is already included in the mc_array["w"] weights
+            #~ mu = acc * mean_mu           
             
-            # This is now the number we want to inject on each source position
-            # The relative MC weighting is already included in the mc_array["w"] weights
-            mu = acc * mean_mu           
-            
-            num = (self.random.poisson(mu)
-                        if poisson else np.array(np.around(mu), dtype=int))
+            #~ num = (self.random.poisson(mu)
+                        #~ if poisson else np.array(np.around(mu), dtype=int))
+            num = (self.random.poisson(mean_mu)
+                        if poisson else int(np.around(mean_mu)))
             #print("num", num, np.sum(num))
 
-            logger.debug(("Generate number of source events: {0:3d} "+
-                          "of mean {1:5.1f}").format(np.sum(num), np.sum(mu)))     
+            #~ logger.debug(("Generate number of source events: {0:3d} "+
+                          #~ "of mean {1:5.1f}").format(np.sum(num), np.sum(mu)))     
+            logger.debug(("Generate number of source events of mean {:5.1f}").format(mean_mu))     
 
             # if no events should be sampled, return nothing
-            if np.sum(num) < 1:
+            #~ if np.sum(num) < 1:
+                #~ print("No events sampled")
+                #~ yield np.sum(num), np.zeros(np.sum(num), 
+                                            #~ dtype=[('ra', '<f8'), 
+                                                   #~ ('dec', '<f8'), 
+                                                   #~ ('logE', '<f8'), 
+                                                   #~ ('sigma', '<f8'),
+                                                   #~ ('sinDec', '<f8')]
+                                           #~ )
+                #~ continue
+            if num < 1:
                 print("No events sampled")
-                yield np.sum(num), np.zeros(np.sum(num), 
-                                            dtype=[('ra', '<f8'), 
-                                                   ('dec', '<f8'), 
-                                                   ('logE', '<f8'), 
-                                                   ('sigma', '<f8'),
-                                                   ('sinDec', '<f8')]
-                                           )
+                yield num, np.zeros(num, 
+                                    dtype=[('ra', '<f8'), 
+                                           ('dec', '<f8'), 
+                                           ('logE', '<f8'), 
+                                           ('sigma', '<f8'),
+                                           ('sinDec', '<f8')]
+                                   )
                 continue
                 
             sam_ev = defaultdict(partial(np.ndarray, 
@@ -787,54 +812,76 @@ class UHECRSourceInjector(PointSourceInjector):
                                 )
                                                    
             #~ start1 = time.time()
-            for i, (src_ra_i, src_dec_i) in enumerate(zip(self.src_ra, self.src_dec)):                
-                mask = np.empty_like(self.mc_arr, dtype=bool)
-                ind=0
-                #~ start = time.time()
-                for key, mc_i in self.mc.iteritems():
-                    mask[ind:ind+len(mc_i)] = ((np.sin(mc_i["trueDec"]) > np.sin(self._min_dec[i]))
-                                                &(np.sin(mc_i["trueDec"]) < np.sin(self._max_dec[i])) 
-                                                &(mc_i["trueE"] / self.GeV > self.e_range[0])
-                                                &(mc_i["trueE"] / self.GeV < self.e_range[1])
+            #~ for i, (src_ra_i, src_dec_i) in enumerate(zip(self.src_ra, self.src_dec)):                
+            mask = np.empty((len(self.mc_arr),len(self.src_ra)), dtype=bool)
+            ind=0
+            #~ start = time.time()
+            for key, mc_i in self.mc.iteritems():
+                #~ mask[ind:ind+len(mc_i)] = (np.logical_or.reduce((np.sin(mc_i["trueDec"])[np.newaxis].T > np.sin(self._min_dec))
+                                                                #~ &(np.sin(mc_i["trueDec"])[np.newaxis].T < np.sin(self._max_dec)), axis=1)
+                                                                #~ &(mc_i["trueE"] / self.GeV > self.e_range[0])
+                                                                #~ &(mc_i["trueE"] / self.GeV < self.e_range[1])
+                                            #~ )
+                mask[ind:ind+len(mc_i)] = ((np.sin(mc_i["trueDec"])[np.newaxis].T > np.sin(self._min_dec))
+                                                                &(np.sin(mc_i["trueDec"])[np.newaxis].T < np.sin(self._max_dec))
+                                                                &(mc_i["trueE"][np.newaxis].T / self.GeV > self.e_range[0])
+                                                                &(mc_i["trueE"][np.newaxis].T / self.GeV < self.e_range[1])
+                                            )
+                                            
+                ind += len(mc_i)
+            
+            #~ stop = time.time()
+            #~ print("mask: ", stop-start)
+            #~ start = time.time()
+            #~ print("nonzero: ", np.count_nonzero(mask), " total: ", np.size(mask), " ratio: ", np.count_nonzero(mask)*1./np.size(mask))
+            single_mask=np.logical_or.reduce(mask, axis=1)
+            #~ print(np.count_nonzero(single_mask), len(single_mask))
+            sam_idx = self.random.choice(self.mc_arr[single_mask], size=num, p=self.mc_arr["w"][single_mask]/np.sum(self.mc_arr["w"][single_mask]))
+            #~ print("Selected {} events for injection".format(num))
+            #~ stop = time.time()
+            #~ print("random choice: ", stop-start)
+            # get the events that were sampled
+            enums = np.unique(sam_idx["enum"])
+
+            #~ start = time.time()
+            n_inj = 0
+            flux = 0.
+
+            if len(enums) == 1 and enums[0] < 0:
+                raise NotImplementedError("D:")
+                # only one sample, just return recarray
+                sam_ev = np.copy(self.mc[enums[0]][sam_idx["idx"]])
+
+                yield num, rotate_struct(sam_ev, src_ra, self.src_dec)
+                continue
+            else:
+                for enum in enums:
+                    idx = sam_idx[sam_idx["enum"] == enum]["idx"]           
+                    for i,(src_ra_i, src_dec_i) in enumerate(zip(self.src_ra, self.src_dec)):
+                    
+                        src_mask = ((np.sin(self.mc[enum][idx]["trueDec"]) > np.sin(self._min_dec[i]))
+                                    &(np.sin(self.mc[enum][idx]["trueDec"]) < np.sin(self._max_dec[i])))
+                        if np.any(src_mask):
+                            flux += self.mu2flux(np.count_nonzero(src_mask),
+                                                self.mc_arr["w"][mask[:,i]],
+                                                self._omega[i]
                                                 )
-                    #~ mask[ind:ind+len(mc_i)] = np.logical_and.reduce([(np.sin(mc_i["trueDec"]) > np.sin(self._min_dec[i])),
-                                                                    #~ (np.sin(mc_i["trueDec"]) < np.sin(self._max_dec[i])),
-                                                                    #~ (mc_i["trueE"] / self.GeV > self.e_range[0]),
-                                                                    #~ (mc_i["trueE"] / self.GeV < self.e_range[1])],
-                                                                    #~ axis=0
-                                                                    #~ )
-                    ind += len(mc_i)
-                #~ stop = time.time()
-                #~ print("mask: ", stop-start)
-                #~ start = time.time()    
-                sam_idx = self.random.choice(self.mc_arr[mask], size=num[i], p=self.mc_arr["w"][mask]/np.sum(self.mc_arr["w"][mask]))
-                #~ stop = time.time()
-                #~ print("random choice: ", stop-start)
-                # get the events that were sampled
-                enums = np.unique(sam_idx["enum"])
-
-                #~ start = time.time()
-
-                if len(enums) == 1 and enums[0] < 0:
-                    raise NotImplementedError("D:")
-                    # only one sample, just return recarray
-                    sam_ev = np.copy(self.mc[enums[0]][sam_idx["idx"]])
-                else:                    
-                    for enum in enums:
-                        idx = sam_idx[sam_idx["enum"] == enum]["idx"]
-                        sam_ev_i = np.copy(self.mc[enum][idx])
-                        sam_ev[enum] = np.append(sam_ev[enum], 
-                                                 rotate_struct(sam_ev_i, 
-                                                               src_ra_i, 
-                                                               src_dec_i
-                                                              )
-                                                 )
-                #~ stop = time.time()
-                #~ print("rotating ", stop-start)
+                            sam_ev_i = np.copy(self.mc[enum][idx][src_mask])
+                            sam_ev[enum] = np.append(sam_ev[enum], 
+                                                     rotate_struct(sam_ev_i, 
+                                                                   src_ra_i, 
+                                                                   src_dec_i,
+                                                                   rand=True
+                                                                  )
+                                                    )
+                    n_inj += len(sam_ev[enum])
+            #~ stop = time.time()
+            #~ print("rotating ", stop-start)
                 
             #~ stop1 = time.time()
             #~ print("total ", stop1-start1)
-            yield np.sum(num), sam_ev
+            #~ yield np.sum(num), sam_ev
+            yield n_inj, flux, sam_ev
             
 class StackingSourceInjector(PointSourceInjector):
     

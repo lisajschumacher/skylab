@@ -1012,12 +1012,13 @@ class PointSourceLLH(object):
             Other keyword arguments are passed to the source fitting.
 
         """
-        mu_gen = kwargs.pop("mu", repeat((0, None)))
+        mu_gen = kwargs.pop("mu", repeat((0, 0, None)))
 
         # values for iteration procedure
         n_iter = kwargs.pop("n_iter", _n_trials)
 
         trials = np.empty((n_iter, ), dtype=[("n_inj", np.int),
+                                             ("flux", np.float),
                                              ("TS", np.float)]
                                             + [(par, np.float)
                                                for par in self.params])
@@ -1026,8 +1027,10 @@ class PointSourceLLH(object):
         stop = time.time()
         mins, secs = divmod(stop - start, 60)
         print("Injection finished after {0:2d}' {1:4.2f}''".format(int(mins), int(secs)))
-        trials["n_inj"] = [sam[0] for sam in samples]
-        samples = [sam[1] for sam in samples]
+        trials["n_inj"] = np.array([sam[0] for sam in samples])
+        trials["flux"] = np.array([sam[1] for sam in samples])
+        samples = [sam[2] for sam in samples]
+        
 
         if self.ncpu > 1 and len(samples) > self.ncpu:
             args = [(self, src_ra, src_dec, sam, True,

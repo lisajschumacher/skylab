@@ -665,8 +665,19 @@ class UHECRSourceInjector(PointSourceInjector):
         Deviation chosen using sigma set in set_UHECR_positions.
         """
 
-        dec3=np.pi/2.-abs(self.random.normal(scale=self.uhecr_sigma))
-        ra3=self.random.uniform(0, np.pi*2.)
+        #~ dec3=np.pi/2.-abs(self.random.normal(loc=self.uhecr_sigma, scale=self.uhecr_sigma))
+        ra3=self.random.uniform(0, np.pi*2., size=len(self.uhecr_dec))
+    
+        dist0 = self.random.normal(loc=self.uhecr_sigma, scale=self.uhecr_sigma)
+        dist0 = dist0[dist0>0]
+        while len(dist0)<len(self.uhecr_sigma):
+            temp = self.random.normal(loc=self.uhecr_sigma, scale=self.uhecr_sigma)
+            dist0 = np.append(dist0, temp[temp>0])
+        dist0 = dist0[:len(self.uhecr_sigma)]
+        
+        dec3=np.pi/2.-dist0
+
+        
         scaling = np.ones_like(self.uhecr_dec)
         ra_rot, dec_rot = rotate(0.*scaling, np.pi/2.*scaling,
                                  self.uhecr_ra, self.uhecr_dec, 
@@ -753,42 +764,14 @@ class UHECRSourceInjector(PointSourceInjector):
         """
 
         # generate event numbers using poissonian events
-        while True: 
+        while True:
+            # Set injection position somewhere near UHECR position
             self.src_dec, self.src_ra = self.set_injection_position()
-            
-            # We get the detector acceptances on each source position for each detector
-            #~ acc = np.zeros_like(self.src_dec)
-            #~ # We now loop over all detectors and add up their contribution
-            #~ for s in self.signal_acceptance:
-                #~ acc += s(np.sin(self.src_dec))
-            #~ acc /= np.sum(acc)
-            #~ assert(np.isclose(np.sum(acc),1.))
-            #~ 
-            #~ # This is now the number we want to inject on each source position
-            #~ # The relative MC weighting is already included in the mc_array["w"] weights
-            #~ mu = acc * mean_mu           
-            
-            #~ num = (self.random.poisson(mu)
-                        #~ if poisson else np.array(np.around(mu), dtype=int))
             num = (self.random.poisson(mean_mu)
                         if poisson else int(np.around(mean_mu)))
-            #print("num", num, np.sum(num))
-
-            #~ logger.debug(("Generate number of source events: {0:3d} "+
-                          #~ "of mean {1:5.1f}").format(np.sum(num), np.sum(mu)))     
+  
             logger.debug(("Generate number of source events of mean {:5.1f}").format(mean_mu))     
 
-            # if no events should be sampled, return nothing
-            #~ if np.sum(num) < 1:
-                #~ print("No events sampled")
-                #~ yield np.sum(num), np.zeros(np.sum(num), 
-                                            #~ dtype=[('ra', '<f8'), 
-                                                   #~ ('dec', '<f8'), 
-                                                   #~ ('logE', '<f8'), 
-                                                   #~ ('sigma', '<f8'),
-                                                   #~ ('sinDec', '<f8')]
-                                           #~ )
-                #~ continue
             if num < 1:
                 print("No events sampled")
                 yield num, np.zeros(num, 
@@ -809,19 +792,10 @@ class UHECRSourceInjector(PointSourceInjector):
                                                 ('sinDec', '<f8')
                                                ]
                                         )
-                                )
-                                                   
-            #~ start1 = time.time()
-            #~ for i, (src_ra_i, src_dec_i) in enumerate(zip(self.src_ra, self.src_dec)):                
+                                )             
             mask = np.empty((len(self.mc_arr),len(self.src_ra)), dtype=bool)
             ind=0
-            #~ start = time.time()
             for key, mc_i in self.mc.iteritems():
-                #~ mask[ind:ind+len(mc_i)] = (np.logical_or.reduce((np.sin(mc_i["trueDec"])[np.newaxis].T > np.sin(self._min_dec))
-                                                                #~ &(np.sin(mc_i["trueDec"])[np.newaxis].T < np.sin(self._max_dec)), axis=1)
-                                                                #~ &(mc_i["trueE"] / self.GeV > self.e_range[0])
-                                                                #~ &(mc_i["trueE"] / self.GeV < self.e_range[1])
-                                            #~ )
                 mask[ind:ind+len(mc_i)] = ((np.sin(mc_i["trueDec"])[np.newaxis].T > np.sin(self._min_dec))
                                                                 &(np.sin(mc_i["trueDec"])[np.newaxis].T < np.sin(self._max_dec))
                                                                 &(mc_i["trueE"][np.newaxis].T / self.GeV > self.e_range[0])
@@ -830,20 +804,11 @@ class UHECRSourceInjector(PointSourceInjector):
                                             
                 ind += len(mc_i)
             
-            #~ stop = time.time()
-            #~ print("mask: ", stop-start)
-            #~ start = time.time()
-            #~ print("nonzero: ", np.count_nonzero(mask), " total: ", np.size(mask), " ratio: ", np.count_nonzero(mask)*1./np.size(mask))
             single_mask=np.logical_or.reduce(mask, axis=1)
-            #~ print(np.count_nonzero(single_mask), len(single_mask))
             sam_idx = self.random.choice(self.mc_arr[single_mask], size=num, p=self.mc_arr["w"][single_mask]/np.sum(self.mc_arr["w"][single_mask]))
-            #~ print("Selected {} events for injection".format(num))
-            #~ stop = time.time()
-            #~ print("random choice: ", stop-start)
-            # get the events that were sampled
             enums = np.unique(sam_idx["enum"])
 
-            #~ start = time.time()
+            
             n_inj = 0
             flux = 0.
 
@@ -875,12 +840,7 @@ class UHECRSourceInjector(PointSourceInjector):
                                                                   )
                                                     )
                     n_inj += len(sam_ev[enum])
-            #~ stop = time.time()
-            #~ print("rotating ", stop-start)
-                
-            #~ stop1 = time.time()
-            #~ print("total ", stop1-start1)
-            #~ yield np.sum(num), sam_ev
+
             yield n_inj, flux, sam_ev
             
 class StackingSourceInjector(PointSourceInjector):

@@ -714,13 +714,6 @@ class UHECRSourceInjector(PointSourceInjector):
 
         for key, mc_i in mc.iteritems():
             
-            #~ n, bins = np.histogram(np.sin(mc_i["trueDec"]), 
-                                   #~ bins=90, 
-                                   #~ weights=mc_i["ow"]*mc_i["trueE"]**(-self.gamma)* livetime[key] * 86400., 
-                                   #~ range=self.sinDec_range
-                                  #~ )
-            #~ self.signal_acceptance.append(InterpolatedUnivariateSpline((bins[1:] + bins[:-1]) / 2., n))
-            
             self.mc[key] = mc_i
 
             N = len(mc_i)
@@ -801,7 +794,6 @@ class UHECRSourceInjector(PointSourceInjector):
                                                                 &(mc_i["trueE"][np.newaxis].T / self.GeV > self.e_range[0])
                                                                 &(mc_i["trueE"][np.newaxis].T / self.GeV < self.e_range[1])
                                             )
-                                            
                 ind += len(mc_i)
             
             single_mask=np.logical_or.reduce(mask, axis=1)

@@ -901,8 +901,8 @@ class ExtendedLLH(PowerLawLLH):
             Spatial signal probability for each event
 
         """
-        #~ src_ra=np.atleast_1d(src_ra)
-        #~ src_dec=np.atleast_1d(src_dec)
+        src_ra=np.atleast_1d(src_ra)
+        src_dec=np.atleast_1d(src_dec)
         if np.allclose(src_sigma, np.zeros_like(src_sigma)):
             print("No Source extension given, results will be PointLLH instead of ExtendedLLH.")
         cos_ev = np.sqrt(1. - ev["sinDec"]**2)

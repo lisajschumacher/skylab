@@ -1098,7 +1098,7 @@ class PointSourceLLH(object):
         if src_w_grad is not None:
             # atm only implemented for one parameter#
             w_tot_grad = src_w_grad['gamma'] / w_norm
-        SoB = np.dot(src_w.transpose(), self._ev_S)/ w_norm / self._ev["B"]
+        SoB = np.dot(src_w.T, self._ev_S)/ w_norm / self._ev["B"]
 
 
         w, grad_w = self.llh_model.weight(self._ev, **fit_pars)
@@ -2160,7 +2160,7 @@ class MultiPointSourceLLH(PointSourceLLH):
         w /= w.sum()
         w_tot = np.sum(w, axis=1)
         grad_w_tot = np.sum(grad_w, axis=2)
-        grad_w_tot -= w_tot[np.newaxis].T * np.sum(grad_w_tot, axis=0)[np.newaxis] #(m x 1) * (1 x p) = (m x p)
+        grad_w_tot -= w_tot[:,np.newaxis] * np.sum(grad_w_tot, axis=0)[np.newaxis] #(m x 1) * (1 x p) = (m x p)
 
         logLambda = 0.
         logLambda_grad = np.zeros_like(self.params, dtype=np.float)

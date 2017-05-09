@@ -789,10 +789,10 @@ class UHECRSourceInjector(PointSourceInjector):
             mask = np.empty((len(self.mc_arr),len(self.src_ra)), dtype=bool)
             ind=0
             for key, mc_i in self.mc.iteritems():
-                mask[ind:ind+len(mc_i)] = ((np.sin(mc_i["trueDec"])[np.newaxis].T > np.sin(self._min_dec))
-                                                                &(np.sin(mc_i["trueDec"])[np.newaxis].T < np.sin(self._max_dec))
-                                                                &(mc_i["trueE"][np.newaxis].T / self.GeV > self.e_range[0])
-                                                                &(mc_i["trueE"][np.newaxis].T / self.GeV < self.e_range[1])
+                mask[ind:ind+len(mc_i)] = ((np.sin(mc_i["trueDec"])[:,np.newaxis] > np.sin(self._min_dec))
+                                                                &(np.sin(mc_i["trueDec"])[:,np.newaxis] < np.sin(self._max_dec))
+                                                                &(mc_i["trueE"][:,np.newaxis] / self.GeV > self.e_range[0])
+                                                                &(mc_i["trueE"][:,np.newaxis] / self.GeV < self.e_range[1])
                                             )
                 ind += len(mc_i)
             

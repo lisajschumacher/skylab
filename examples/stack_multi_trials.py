@@ -7,14 +7,13 @@ import time
 import numpy as np
 
 from argparse import ArgumentParser
-from collections import defaultdict
 
 from skylab.psLLH import MultiPointSourceLLH, PointSourceLLH
 from skylab.ps_model import ExtendedLLH, EnergyLLH
 from skylab.ps_injector import UHECRSourceInjector
 from skylab.utils import rotate
 
-from functions import load_data, prepareDirectory, set_UHECR_positions, set_injection_position
+from my_functions import load_data, prepare_directory
 
 _i=10
 _job=0
@@ -86,8 +85,8 @@ if not correct:
 	print("Chose {} instead".format(_det))
 	args.det = _det
 	
-if args.et>=120 or args.et<=65:
-     print("energy threshold {} not between 65 and 120, chose {} EeV instead".format(args.et, e_thresh))
+if args.et>125 or args.et<50:
+     print("energy threshold {} not between 50 and 125, chose {} EeV instead".format(args.et, _et))
      args.et = _et
 
 if args.md<0:
@@ -120,10 +119,6 @@ for arg in vars(args):
 			if add_save[-1]=="-": add_save=add_save[:-1]+"_"
 if add_save[-1]=="_": add_save=add_save[:-1] #remove last underscore
 
-# Sleep random time to avoid data reading conflicts
-#~ print("sleeping....")
-#~ time.sleep(np.random.uniform(0,120))
-#~ print("waking up!")
 
 # Read data from ...
 basepath="/net/scratch_icecube4/user/lschumacher/projects/data/ps_sample/coenders_pub"
@@ -136,8 +131,8 @@ start = time.time()
 #Initialize MultiLLH and dicts
 multi_llh = MultiPointSourceLLH()
 multi_llh.reset()
-mcdict = defaultdict()
-ltdict = defaultdict()
+mcdict = dict()
+ltdict = dict()
 start1 = time.time()
 for key,det in enumerate(args.det):	
 	# Load data

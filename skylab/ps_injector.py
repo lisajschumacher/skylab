@@ -628,7 +628,7 @@ class UHECRSourceInjector(PointSourceInjector):
         dec, ra, sigma (i.e. assumed magnetic deflection)
         """
 
-        path = "/home/home2/institut_3b/lschumacher/phd_stuff/phd_stuff_git/phd_code/CRdata"
+        path = "/home/home2/institut_3b/lschumacher/phd_stuff/phd_code_git/CRdata"
         files_dict = {"auger" : {"f" : "AugerUHECR2014.txt", "data" : None}, "ta" : {"f" : "TelArrayUHECR.txt", "data" : None}}
         dec_temp = []
         ra_temp = []

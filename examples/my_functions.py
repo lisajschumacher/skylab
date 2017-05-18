@@ -2,12 +2,18 @@ import os
 import ConfigParser
 import numpy as np
 
-def load_data(basepath, filename, shuffle_bool=True):
+def load_data(basepath, inipath, filename, shuffle_bool=True):
 	"""
-	shuffle_bool: do or do not shuffle (currently setting to false has no effect)
-	basepath: "/net/scratch_icecube4/user/lschumacher/projects/data/ps_sample/coenders_pub/"
+	shuffle_bool: do or do not shuffle experimental data
+								(currently setting to false has no effect)
+	basepath:
+						Madison: 	/data/user/coenders/data/MultiYearPointSource/npz/
+											ini_path: /data/user/lschumacher/config_files_ps/*.ini
+						Aachen: 	/net/scratch_icecube4/user/lschumacher/projects/data/ps_sample/coenders_pub/
+											ini_path: same as above
 
 	Possible filenames:
+	Style: IC*_(corrected_MC|exp).npy
 	IC40
 	IC59
 	IC79
@@ -18,7 +24,7 @@ def load_data(basepath, filename, shuffle_bool=True):
 
 	"""
 	config = ConfigParser.ConfigParser()
-	config.read(os.path.join(basepath, filename+"_config.ini"))
+	config.read(os.path.join(inipath, filename+"_config.ini"))
 	livetime = float(config.get("properties", "Livetime")) 
 
 	if filename in ["IC86-2013","IC86-2014"]:

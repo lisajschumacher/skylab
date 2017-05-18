@@ -120,10 +120,26 @@ for arg in vars(args):
 if add_save[-1]=="_": add_save=add_save[:-1] #remove last underscore
 
 
-# Read data from ...
-basepath="/net/scratch_icecube4/user/lschumacher/projects/data/ps_sample/coenders_pub"
-# Save to ...
-savepath = "/net/scratch_icecube4/user/lschumacher/projects/stacking"
+# Read/save data from/to ...
+if "physik.rwth-aachen.de" in socket.gethostname():
+    if "lx3b74" in socket.gethostname():
+        # Local scratch
+        basepath="/user/scratch/lschumacher/ps_data"
+        inipath="/user/scratch/lschumacher/ps_data"
+    else:
+	basepath="/net/scratch_icecube4/user/lschumacher/projects/data/ps_sample/coenders_pub"
+	inipath="/net/scratch_icecube4/user/lschumacher/projects/data/ps_sample/coenders_pub"
+    savepath = "/net/scratch_icecube4/user/lschumacher/projects/stacking"
+elif "M16" in socket.gethostname():
+    raise("Not up to date! Probably... go check it first")
+    savepath = "/home/icecube/Desktop/pScratch4/lschumacher/projects/stacking"
+    basepath="/home/icecube/Desktop/pScratch4/lschumacher/projects/data/ps_sample/coenders_pub"
+    inipath="/home/icecube/Desktop/pScratch4/lschumacher/projects/data/ps_sample/coenders_pub"
+elif "icecube.wisc.edu" in socket.gethostname():
+    raise NotImplementedError("Not yet implemented!")
+else:
+    raise("Unknown Host")
+    
 savepath = os.path.join(savepath, add_save)
 print("Parameters: {}".format(add_save), "Starting!")
 start = time.time()
@@ -136,7 +152,7 @@ ltdict = dict()
 start1 = time.time()
 for key,det in enumerate(args.det):	
 	# Load data
-	mc, exp, livetime = load_data(basepath, det)
+	mc, exp, livetime = load_data(basepath, inipath, det)
 	mc = np.rec.array(mc)
 	exp = np.rec.array(exp)	
 	
@@ -166,7 +182,7 @@ for i in trials.dtype.names:
 	header+=i+" "
 		 
 savestring = os.path.join(savepath, "trials_job{}".format(args.job))
-prepareDirectory(os.path.join(savepath), subs=False)
+prepare_directory(os.path.join(savepath))
 np.savetxt(	savestring,
 						trials, 
 						header=header,

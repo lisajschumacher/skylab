@@ -610,7 +610,7 @@ class UHECRSourceInjector(PointSourceInjector):
 
         return flux
     
-    def set_UHECR_positions(self, D, e_thresh, **kwargs):
+    def set_UHECR_positions(self, D, e_thresh, path="/home/home2/institut_3b/lschumacher/phd_stuff/phd_code_git/data"):
         """
         Read the UHECR text file(s)
         Parameters:
@@ -622,13 +622,17 @@ class UHECRSourceInjector(PointSourceInjector):
             e_thresh : float
                                  threshold value for energy given in EeV
             
-        kwargs : not yet implemented
+        Optional:
+            path : Where to find the CR data
+                    the data sets can be downloaded from
+                    https://wiki.icecube.wisc.edu/auger/index.php/Auger_Event_List
+                    https://wiki.icecube.wisc.edu/auger/index.php/TA_Event_List
         
         returns : three arrays
         dec, ra, sigma (i.e. assumed magnetic deflection)
         """
 
-        path = "/home/home2/institut_3b/lschumacher/phd_stuff/phd_code_git/CRdata"
+        
         files_dict = {"auger" : {"f" : "AugerUHECR2014.txt", "data" : None}, "ta" : {"f" : "TelArrayUHECR.txt", "data" : None}}
         dec_temp = []
         ra_temp = []

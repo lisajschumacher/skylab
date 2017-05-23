@@ -85,8 +85,8 @@ if not correct:
 	print("Chose {} instead".format(_det))
 	args.det = _det
 	
-if args.et>125 or args.et<50:
-     print("energy threshold {} not between 50 and 125, chose {} EeV instead".format(args.et, _et))
+if args.et>150 or args.et<50:
+     print("energy threshold {} not between 50 and 150, chose {} EeV instead".format(args.et, _et))
      args.et = _et
 
 if args.md<0:

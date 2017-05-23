@@ -60,6 +60,9 @@ def angular_distance(x1, x2):
 	Compute the angular distance between two vectors on a unit sphere
 	Parameters :
 		x1/2: Vector with [declination, right-ascension]
+	Return :
+		cosine of angular distance, in order to get the angular
+		distance in rad, take arccos of result
 	"""
 	x1=np.array(x1)
 	x2=np.array(x2)

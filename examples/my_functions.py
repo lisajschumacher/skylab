@@ -54,3 +54,14 @@ def prepare_directory(direc, mode=0754):
 		os.chmod(direc, mode)
 
 	print "Prepared writing directory: " + direc
+
+def angular_distance(x1, x2):
+	"""
+	Compute the angular distance between two vectors on a unit sphere
+	Parameters :
+		x1/2: Vector with [declination, right-ascension]
+	"""
+	x1=np.array(x1)
+	x2=np.array(x2)
+	assert(len(x1)==len(x2)==2)
+	return np.sin(x1[0]) * np.sin(x2[0]) + np.cos(x1[0]) * np.cos(x2[0]) * np.cos(x1[1]-x2[1])

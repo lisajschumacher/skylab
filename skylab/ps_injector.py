@@ -46,6 +46,7 @@ from functools import partial
 import numpy as np
 from numpy.lib.recfunctions import drop_fields
 from scipy.interpolate import InterpolatedUnivariateSpline
+from scipy.stats import rayleigh
 #from memory_profiler import profile
 #from profilehooks import profile
 
@@ -669,18 +670,8 @@ class UHECRSourceInjector(PointSourceInjector):
         Deviation chosen using sigma set in set_UHECR_positions.
         """
 
-        #~ dec3=np.pi/2.-abs(self.random.normal(loc=self.uhecr_sigma, scale=self.uhecr_sigma))
+        dec3=np.arccos(rayleigh.rvs(scale=self.uhecr_sigma, size=len(self.uhecr_dec), random_state=self.random))
         ra3=self.random.uniform(0, np.pi*2., size=len(self.uhecr_dec))
-    
-        dist0 = self.random.normal(loc=self.uhecr_sigma, scale=self.uhecr_sigma)
-        dist0 = dist0[dist0>0]
-        while len(dist0)<len(self.uhecr_sigma):
-            temp = self.random.normal(loc=self.uhecr_sigma, scale=self.uhecr_sigma)
-            dist0 = np.append(dist0, temp[temp>0])
-        dist0 = dist0[:len(self.uhecr_sigma)]
-        
-        dec3=np.pi/2.-dist0
-
         
         scaling = np.ones_like(self.uhecr_dec)
         ra_rot, dec_rot = rotate(0.*scaling, np.pi/2.*scaling,

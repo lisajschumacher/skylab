@@ -136,7 +136,10 @@ elif "M16" in socket.gethostname():
     basepath="/home/icecube/Desktop/pScratch4/lschumacher/projects/data/ps_sample/coenders_pub"
     inipath="/home/icecube/Desktop/pScratch4/lschumacher/projects/data/ps_sample/coenders_pub"
 elif "icecube.wisc.edu" in socket.gethostname():
-    raise NotImplementedError("Not yet implemented!")
+    basepath = "/data/user/coenders/data/MultiYearPointSource/npz"
+    inipath = "/data/user/lschumacher/config_files_ps"
+    savepath = "/data/user/lschumacher/projects/stacking"
+    crpath = "/home/lschumacher/git_repos/general_code_repo/data"
 else:
     raise("Unknown Host")
     
@@ -166,8 +169,8 @@ for key,det in enumerate(args.det):
 stop1 = time.time()
 mins, secs = divmod(stop1 - start1, 60)
 print("Setup finished after {0:2d}' {1:4.2f}''".format(int(mins), int(secs)))
-
-injector = UHECRSourceInjector(2., np.radians(args.md), e_thresh=args.et)
+print(crpath)
+injector = UHECRSourceInjector(2., np.radians(args.md), e_thresh=args.et, path=crpath)
 
 if args.mu>0:
 	injector.fill(mcdict, ltdict)

@@ -535,9 +535,9 @@ class UHECRSourceInjector(PointSourceInjector):
     CANNOT be used with PointSourceLLH.weighted_sensitivity
     CAN be used with do trials, as it samples the correct events needed for the trials
     """
-    def __init__(self, gamma, D, e_thresh, **kwargs):
+    def __init__(self, gamma, D, e_thresh, path, **kwargs):
         
-        self.set_UHECR_positions(D, e_thresh)
+        self.set_UHECR_positions(D, e_thresh, path)
         self._omega = np.pi * 4.
         super(UHECRSourceInjector, self).__init__(gamma, **kwargs)
         
@@ -610,7 +610,7 @@ class UHECRSourceInjector(PointSourceInjector):
 
         return flux
     
-    def set_UHECR_positions(self, D, e_thresh, path="/home/home2/institut_3b/lschumacher/phd_stuff/phd_code_git/data"):
+    def set_UHECR_positions(self, D, e_thresh, path):
         """
         Read the UHECR text file(s)
         Parameters:
@@ -624,6 +624,7 @@ class UHECRSourceInjector(PointSourceInjector):
             
         Optional:
             path : Where to find the CR data
+		   "/home/home2/institut_3b/lschumacher/phd_stuff/phd_code_git/data"
                     the data sets can be downloaded from
                     https://wiki.icecube.wisc.edu/auger/index.php/Auger_Event_List
                     https://wiki.icecube.wisc.edu/auger/index.php/TA_Event_List

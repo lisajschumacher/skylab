@@ -612,7 +612,7 @@ class UHECRSourceInjector(PointSourceInjector):
         return flux
     
     def set_UHECR_positions(self, D, e_thresh, path):
-        """
+        """ 
         Read the UHECR text file(s)
         Parameters:
 
@@ -623,7 +623,6 @@ class UHECRSourceInjector(PointSourceInjector):
             e_thresh : float
                                  threshold value for energy given in EeV
             
-        Optional:
             path : Where to find the CR data
 		   "/home/home2/institut_3b/lschumacher/phd_stuff/phd_code_git/data"
                     the data sets can be downloaded from
@@ -639,6 +638,7 @@ class UHECRSourceInjector(PointSourceInjector):
         dec_temp = []
         ra_temp = []
         e_temp = []
+        sigma_reco = []
 
         for k,f in files_dict.iteritems():
             f["data"] = np.genfromtxt(os.path.join(path, f["f"]), names=True)
@@ -647,8 +647,10 @@ class UHECRSourceInjector(PointSourceInjector):
             if k=="ta":
                 # Implement energy shift of 13%, see paper
                 e_temp.extend(files_dict[k]["data"]['E']*(1.-0.13))
+                sigma_reco.extend(len(f["data"])*[np.radians(1.5)])
             else:
                 e_temp.extend(files_dict[k]["data"]['E'])
+                sigma_reco.extend(len(f["data"])*[np.radians(0.9)])
 
         # Check the threshold
         if e_thresh > max(e_temp):
@@ -663,19 +665,21 @@ class UHECRSourceInjector(PointSourceInjector):
         self.uhecr_ra = np.array(ra_temp)[e_mask]
 
         # set source extent by formula sigma_CR = D*100EeV/E_CR
-        self.uhecr_sigma = D*100./np.array(e_temp)[e_mask]
+        deflection = D*100./np.array(e_temp)[e_mask]
+        sigma_reco = np.array(sigma_reco)[e_mask]
+        self.uhecr_sigma = np.sqrt(deflection**2 + sigma_reco**2)
     
     def set_injection_position(self):
-        """
+        """ 
         Find a source position some degree away from assumed source position given by dec/ra.
         Deviation chosen using sigma set in set_UHECR_positions.
         """
 
-        dec3=np.arccos(rayleigh.rvs(scale=self.uhecr_sigma, size=len(self.uhecr_dec), random_state=self.random))
-        ra3=self.random.uniform(0, np.pi*2., size=len(self.uhecr_dec))
+        dec3 = rayleigh.rvs(scale=self.uhecr_sigma, size=len(self.uhecr_dec), random_state=self.random) - np.pi/2.
+        ra3 = self.random.uniform(0, np.pi*2., size=len(self.uhecr_dec))
         
         scaling = np.ones_like(self.uhecr_dec)
-        ra_rot, dec_rot = rotate(0.*scaling, np.pi/2.*scaling,
+        ra_rot, dec_rot = rotate(0.*scaling, -1.*np.pi/2.*scaling,
                                  self.uhecr_ra, self.uhecr_dec, 
                                  ra3*scaling, dec3*scaling)
         return dec_rot, ra_rot

@@ -1,9 +1,11 @@
 import os
 import ConfigParser
 import numpy as np
+import scipy.optimize
+from skylab.utils import poisson_percentile
 
 def load_data(basepath, inipath, filename, shuffle_bool=True):
-	"""
+	""" 
 	shuffle_bool: do or do not shuffle experimental data
 								(currently setting to false has no effect)
 	basepath:
@@ -44,7 +46,7 @@ def load_data(basepath, inipath, filename, shuffle_bool=True):
 	return mc, exp, livetime
 
 def prepare_directory(direc, mode=0754):
-	"""
+	""" 
 	Prepare directory for writing
 	Make directory if not yet existing
 	Change chmod to desired value, default is 0754
@@ -56,7 +58,7 @@ def prepare_directory(direc, mode=0754):
 	print "Prepared writing directory: " + direc
 
 def angular_distance(x1, x2):
-	"""
+	""" 
 	Compute the angular distance between two vectors on a unit sphere
 	Parameters :
 		x1/2: Vector with [declination, right-ascension]
@@ -68,3 +70,51 @@ def angular_distance(x1, x2):
 	x2=np.array(x2)
 	assert(len(x1)==len(x2)==2)
 	return np.sin(x1[0]) * np.sin(x2[0]) + np.cos(x1[0]) * np.cos(x2[0]) * np.cos(x1[1]-x2[1])
+
+def do_estimation_standalone(TSval, beta, trials):
+    r""" 
+    standalone calculation of sensitivity/disc.pot.
+    """
+    _ub_perc = 1.
+    print("\tTS    = {0:6.2f}\n".format(TSval) +
+          "\tbeta  = {0:7.2%}".format(beta))
+    print()
+
+    # start estimation
+    # use existing scrambles to determine best starting point
+    fun = lambda n: np.log10((poisson_percentile(n,
+                                                  trials["n_inj"],
+                                                  trials["TS"],
+                                                  TSval)[0] - beta)**2)
+
+    # fit values in region where sampled before
+    bounds = np.percentile(trials["n_inj"][trials["n_inj"] > 0],
+                           [_ub_perc, 100. - _ub_perc])
+
+    if bounds[0] == 1:
+        bounds[0] = (float(np.count_nonzero(trials["n_inj"] == 1))
+                        / np.sum(trials["n_inj"] < 2))
+
+    print("\tEstimate sens. in region {0:5.1f} to {1:5.1f}".format(
+                *bounds))
+
+    # get best starting point
+    ind = np.argmin([fun(n_i) for n_i in np.arange(0., bounds[-1])])
+
+    # fit closest point to beta value
+    x, f, info = scipy.optimize.fmin_l_bfgs_b(
+                        fun, [ind], bounds=[bounds],
+                        approx_grad=True)
+
+    mu_eff = np.asscalar(x)
+
+    # get the statistical uncertainty of the quantile
+    b, b_err = poisson_percentile(mu_eff, trials["n_inj"],
+                                        trials["TS"], TSval)
+
+    print("\t\tBest estimate: "
+          "{0:6.2f}, ({1:7.2%} +/- {2:8.3%})".format(mu_eff,
+                                                     b, b_err))
+
+
+    return mu_eff, b, b_err

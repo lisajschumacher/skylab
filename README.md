@@ -1,3 +1,8 @@
+# extended_sources branch: addition and modification to the original skylab code
+- Made for stacking of extended spatial PDFs according to UHECR arrival directions
+- Usage: see stack_multi_trials.py 
+- Trial evaluation: see ts_trial_evaluation.py
+
 # skylab
 
 Skylab is a python based toolkit to perform unbinned likelihood analyses of
@@ -12,4 +17,5 @@ search. All the magic happens within the framework of *numpy*, *scipy*, and
 
 http://github.com/coenders/skylab
 
-#extended_sources branch: experimental addition to the original skylab code *IN WORK*
+Based on commit 363c999 (after pull request #4 by kkrings)
+

@@ -14,7 +14,7 @@ import numpy as np
 
 # skylab
 from skylab.psLLH import PointSourceLLH, MultiPointSourceLLH
-from skylab.ps_model import UniformLLH, PowerLawLLH
+from skylab.ps_model import UniformLLH, EnergyLLH, PowerLawLLH, ClassicLLH
 from skylab.ps_injector import PointSourceInjector
 
 mrs = np.radians(1.)
@@ -70,6 +70,8 @@ def MC(N=1000):
 
 def init(Nexp, NMC, energy=True, **kwargs):
     Nsrc = kwargs.pop("Nsrc", 0)
+    fixed_gamma = kwargs.pop("fixed_gamma", False)
+    classic = kwargs.pop("classic", False)
 
     arr_exp = exp(Nexp - Nsrc)
     arr_mc = MC(NMC)
@@ -82,13 +84,25 @@ def init(Nexp, NMC, energy=True, **kwargs):
 
         arr_exp = np.append(arr_exp, source)
 
-    if energy:
+    if classic:
+        llh_model = ClassicLLH(sinDec_bins=min(50, Nexp // 50),
+                                sinDec_range=[-1., 1.])
+    elif energy and not fixed_gamma:
+        """
         llh_model = PowerLawLLH(["logE"], min(50, Nexp // 50),
                                 range=[[0.9 * arr_mc["logE"].min(),
                                         1.1 * arr_mc["logE"].max()]],
                                 sinDec_bins=min(50, Nexp // 50),
                                 sinDec_range=[-1., 1.],
                                 bounds=(0, 5))
+                                #"""
+        llh_model = EnergyLLH(sinDec_bins=min(50, Nexp // 50),
+                                sinDec_range=[-1., 1.],
+                                bounds=(0, 5))
+    elif fixed_gamma:
+        llh_model = EnergyLLH(sinDec_bins=min(50, Nexp // 50),
+                                sinDec_range=[-1., 1.],
+                                bounds=(2, 2))
     else:
         llh_model = UniformLLH(sinDec_bins=max(3, Nexp // 200),
                                sinDec_range=[-1., 1.])

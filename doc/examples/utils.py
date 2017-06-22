@@ -26,6 +26,11 @@ def startup(NN=1, multi=False, **kwargs):
 
 def plotting(backend="QT4Agg"):
     import matplotlib as mpl
+    from cycler import cycler
+    from seaborn import cubehelix_palette, set_palette
+    colors = cubehelix_palette(6, start=0, rot=1, dark=0.2, light=0.75, reverse=True, hue=1)
+    cmap = cubehelix_palette(6, start=0, rot=1, dark=0.2, light=0.75, reverse=True, hue=1, as_cmap=True)
+    set_palette(colors)
     if backend is not None:
         mpl.use(backend)
 
@@ -40,8 +45,8 @@ def plotting(backend="QT4Agg"):
     rcParams["figure.dpi"] = 72.27
     rcParams["figure.figsize"] = (tw, tw / 1.6)
     rcParams["figure.autolayout"] = True
-    # rcParams["axes.color_cycle"] =["#d7191c", "#2b83ba", "#756bb1",
-    #                                "#fdae61", "#abdda4"]
+    rcParams["axes.prop_cycle"] = cycler("color", colors)
+    rcParams["image.cmap"] = cmap
     rcParams["axes.labelsize"] = 10
     rcParams["xtick.labelsize"] = 10
     rcParams["ytick.labelsize"] = 10

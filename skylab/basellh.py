@@ -218,6 +218,7 @@ class BaseLLH(object):
 
         """
         logger = logging.getLogger(self._logname + ".all_sky_scan")
+        logger.info("Parameters for fitting: "+str(self.params))
 
         if pVal is None:
             def pVal(ts, sindec):

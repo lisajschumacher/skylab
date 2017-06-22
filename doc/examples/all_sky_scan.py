@@ -30,13 +30,14 @@ if __name__=="__main__":
 
     plt = utils.plotting(backend="pdf")
 
-    llh, mc = utils.startup(Nsrc=10)
+    # This calculates the classicLLH, i.e. only directional information and gamma=2 fixed
+    llh, mc = utils.startup(Nsrc=0, fixed_gamma=True) 
 
     print(llh)
 
     # iterator of all-sky scan with follow up scans of most interesting points
     for i, (scan, hotspot) in enumerate(llh.all_sky_scan(
-                                nside=2**6, follow_up_factor=1,
+                                nside=2**3, follow_up_factor=1,
                                 pVal=pVal_func,
                                 hemispheres=dict(Full=np.radians([-90., 90.])))):
 
@@ -52,7 +53,7 @@ if __name__=="__main__":
     if hasattr(plt.cm, "magma"):
         cmap = plt.cm.magma
     else:
-        cmap = None
+        cmap = None # plt.cm.brg
 
     fig, ax = utils.skymap(plt, scan["pVal"], cmap=cmap,
                            vmin=0., vmax=np.ceil(hotspot["Full"]["best"]["pVal"]),

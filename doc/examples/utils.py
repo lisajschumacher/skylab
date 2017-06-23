@@ -7,6 +7,13 @@ import numpy as np
 
 import data
 
+from seaborn import cubehelix_palette, set_palette
+# Custom colors and colormaps
+colors = cubehelix_palette(6, start=0, rot=1, dark=0.2, light=0.75, reverse=True, hue=1)
+cmap = cubehelix_palette(start=0, rot=1, dark=0., light=0.75, reverse=True, hue=1, as_cmap=True)
+set_palette(colors)
+
+
 tw = 5.31
 
 logging.basicConfig(level=logging.WARN)
@@ -27,14 +34,12 @@ def startup(NN=1, multi=False, **kwargs):
 def plotting(backend="QT4Agg"):
     import matplotlib as mpl
     from cycler import cycler
-    from seaborn import cubehelix_palette, set_palette
-    colors = cubehelix_palette(6, start=0, rot=1, dark=0.2, light=0.75, reverse=True, hue=1)
-    cmap = cubehelix_palette(6, start=0, rot=1, dark=0.2, light=0.75, reverse=True, hue=1, as_cmap=True)
-    set_palette(colors)
-    if backend is not None:
-        mpl.use(backend)
 
+    #if backend is not None:
+    #    mpl.use(backend)
+    mpl.rcdefaults()
     rcParams = dict()
+    rcParams["backend"] = backend
     # rcParams["text.size"] = 10
     rcParams["font.size"] = 10
     rcParams["font.family"] = "serif"
@@ -46,7 +51,6 @@ def plotting(backend="QT4Agg"):
     rcParams["figure.figsize"] = (tw, tw / 1.6)
     rcParams["figure.autolayout"] = True
     rcParams["axes.prop_cycle"] = cycler("color", colors)
-    rcParams["image.cmap"] = cmap
     rcParams["axes.labelsize"] = 10
     rcParams["xtick.labelsize"] = 10
     rcParams["ytick.labelsize"] = 10

@@ -31,13 +31,13 @@ if __name__=="__main__":
     plt = utils.plotting(backend="pdf")
 
     # This calculates the classicLLH, i.e. only directional information and gamma=2 fixed
-    llh, mc = utils.startup(Nsrc=0, fixed_gamma=True) 
+    llh, mc = utils.startup(Nsrc=10, fixed_gamma=True) 
 
     print(llh)
 
     # iterator of all-sky scan with follow up scans of most interesting points
     for i, (scan, hotspot) in enumerate(llh.all_sky_scan(
-                                nside=2**3, follow_up_factor=1,
+                                nside=2**6, follow_up_factor=1,
                                 pVal=pVal_func,
                                 hemispheres=dict(Full=np.radians([-90., 90.])))):
 
@@ -50,10 +50,14 @@ if __name__=="__main__":
 
     eps = 1.
 
+    """
     if hasattr(plt.cm, "magma"):
         cmap = plt.cm.magma
     else:
         cmap = None # plt.cm.brg
+    """
+    # Custom colormap using cubehelix
+    cmap = utils.cmap
 
     fig, ax = utils.skymap(plt, scan["pVal"], cmap=cmap,
                            vmin=0., vmax=np.ceil(hotspot["Full"]["best"]["pVal"]),
@@ -78,8 +82,8 @@ if __name__=="__main__":
 
     fig.savefig("figures/skymap_pVal.pdf", dpi=256)
 
-    plt.show()
-    plt.close("all")
+    #plt.show()
+    #plt.close("all")
 
     for key in ["TS"] + llh.params:
         eps = 0.1 if key != "TS" else 0.0
@@ -93,7 +97,7 @@ if __name__=="__main__":
                                colorbar=dict(title=label[key]),
                                rasterized=True)
 
-        fig.savefig("figures/skymap_" + key, dpi=256)
+        fig.savefig("figures/skymap_" + key +".pdf", dpi=256)
 
-        plt.show()
-        plt.close("all")
+        #plt.show()
+        #plt.close("all")

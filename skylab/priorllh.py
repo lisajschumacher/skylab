@@ -40,14 +40,16 @@ class PriorLLH(psLLH.PointSourceLLH):
 
 	# The log-likelihood function will be taylor-expanded around this treshold
 	# value; see llh method.
-	'''
+	
 	def __init__(self, *args, **kwargs):
 		super(PriorLLH, self).__init__(*args, **kwargs)
-	#'''
+	'''
+	# In Case of wanting to change the init ...
 	def __init__(self, exp, mc, livetime, llh_model, scramble=True, mode="box",
 				 delta_ang=np.deg2rad(10.), thresh_S=0., **kwargs):
 		super(PriorLLH, self).__init__(exp, mc, livetime, llh_model, scramble=scramble, mode=mode,
 				 delta_ang=delta_ang, thresh_S=thresh_S, **kwargs)
+	'''
 
 	def all_sky_scan(self, nside=128, follow_up_factor=2, hemispheres=None,
 								 pVal=None, **kwargs):
@@ -114,6 +116,8 @@ class PriorLLH(psLLH.PointSourceLLH):
 		prior_dec = kwargs.pop("pdec", 0.)
 		prior_ra = kwargs.pop("pra", np.pi)
 		prior_sigma = kwargs.pop("psig", np.radians(6.))
+		logger.info("Adding Gaussian prior at (dec, ra)=({0:1.2f},{1:1.2f}) rad,".format(prior_dec, prior_ra)
+					+"sigma is {0:1.2f} deg".format(prior_sigma))
 		
 		# Calculate prior central direction 
 		mean_vec = UnitSphericalRepresentation(Angle(prior_ra, u.radian), Angle(prior_dec, u.radian))
@@ -208,5 +212,4 @@ class PriorLLH(psLLH.PointSourceLLH):
 
 			nside *= 2**follow_up_factor
 			niterations += 1
-			#'''
 

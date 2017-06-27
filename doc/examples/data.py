@@ -72,6 +72,7 @@ def MC(N=1000):
 def init(Nexp, NMC, energy=True, **kwargs):
     Nsrc = kwargs.pop("Nsrc", 0)
     fixed_gamma = kwargs.pop("fixed_gamma", False)
+    fit_gamma = kwargs.pop("fit_gamma", 2.)
 
     arr_exp = exp(Nexp - Nsrc)
     arr_mc = MC(NMC)
@@ -79,7 +80,11 @@ def init(Nexp, NMC, energy=True, **kwargs):
     if Nsrc > 0:
         src_dec = kwargs.pop("src_dec", 0.)
         src_ra = kwargs.pop("src_ra", np.pi)
-        inj = PointSourceInjector(2, sinDec_bandwidth=1, seed=0)
+        gamma_inj = kwargs.pop("gamma_inj", 2.)
+        print("Injecting Point source with {0} events, at (dec, ra)=({1:1.2f},{2:1.2f}) rad".format(Nsrc, src_dec, src_ra))
+        print("Spectral index of the Source is {0:1.2f}".format(gamma_inj))
+        print("This will be fitted with a fixed gamma of {0:1.2f}".format(fit_gamma))
+        inj = PointSourceInjector(gamma_inj, sinDec_bandwidth=1, seed=0)
         inj.fill(src_dec, arr_mc, 333.)
 
         source = inj.sample(src_ra, Nsrc, poisson=False).next()[1]
@@ -101,7 +106,7 @@ def init(Nexp, NMC, energy=True, **kwargs):
     elif fixed_gamma:
         llh_model = EnergyLLH(sinDec_bins=min(50, Nexp // 50),
                                 sinDec_range=[-1., 1.],
-                                bounds=(2, 2))
+                                bounds=(fit_gamma, fit_gamma))
     else:
         llh_model = UniformLLH(sinDec_bins=max(3, Nexp // 200),
                                sinDec_range=[-1., 1.])

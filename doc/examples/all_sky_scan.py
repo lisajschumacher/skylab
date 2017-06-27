@@ -34,8 +34,11 @@ if __name__=="__main__":
     fixed_gamma=True
     src_dec = 0.
     src_ra = np.pi
-    src_sigma = np.radians(30.)
-    llh, mc = utils.startup(Nsrc=25, fixed_gamma=fixed_gamma,
+    src_sigma = np.radians(6.)
+    src_gamma = 2.
+    fit_gamma = 2.
+    llh, mc = utils.startup(Nsrc=10, fixed_gamma=fixed_gamma,
+                            gamma_inj=src_gamma,
                             src_dec=src_dec, src_ra=src_ra
                             ) 
     print(llh)
@@ -44,9 +47,10 @@ if __name__=="__main__":
                                 nside=2**4, follow_up_factor=1,
                                 pVal=pVal_func,
                                 hemispheres=dict(Full=np.radians([-90., 90.])),
-                                pdec=src_dec+0.1,
-                                pra=src_ra+0.1,
-                                psig=src_sigma)
+                                pdec=src_dec,
+                                pra=src_ra,
+                                psig=src_sigma,
+                                fit_gamma=fit_gamma)
                                 ):
 
         if i > 0:

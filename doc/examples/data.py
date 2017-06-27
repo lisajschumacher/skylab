@@ -16,6 +16,7 @@ import numpy as np
 from skylab.psLLH import PointSourceLLH, MultiPointSourceLLH
 from skylab.ps_model import UniformLLH, EnergyLLH, PowerLawLLH
 from skylab.ps_injector import PointSourceInjector
+from skylab.priorllh import PriorLLH
 
 mrs = np.radians(1.)
 mrs_min = np.radians(0.05)
@@ -70,17 +71,18 @@ def MC(N=1000):
 
 def init(Nexp, NMC, energy=True, **kwargs):
     Nsrc = kwargs.pop("Nsrc", 0)
-    print("Number of injected sources: ", Nsrc)
     fixed_gamma = kwargs.pop("fixed_gamma", False)
 
     arr_exp = exp(Nexp - Nsrc)
     arr_mc = MC(NMC)
 
     if Nsrc > 0:
+        src_dec = kwargs.pop("src_dec", 0.)
+        src_ra = kwargs.pop("src_ra", np.pi)
         inj = PointSourceInjector(2, sinDec_bandwidth=1, seed=0)
-        inj.fill(0., arr_mc, 333.)
+        inj.fill(src_dec, arr_mc, 333.)
 
-        source = inj.sample(np.pi, Nsrc, poisson=False).next()[1]
+        source = inj.sample(src_ra, Nsrc, poisson=False).next()[1]
 
         arr_exp = np.append(arr_exp, source)
 
@@ -103,13 +105,20 @@ def init(Nexp, NMC, energy=True, **kwargs):
     else:
         llh_model = UniformLLH(sinDec_bins=max(3, Nexp // 200),
                                sinDec_range=[-1., 1.])
-
-    llh = PointSourceLLH(arr_exp, arr_mc, 365., llh_model=llh_model,
-                         mode="all", nsource=25, scramble=False,
-                         nsource_bounds=(-Nexp / 2., Nexp / 2.)
-                                        if not energy else (0., Nexp / 2.),
-                         seed=np.random.randint(2**32),
-                         **kwargs)
+    if fixed_gamma:
+        llh = PriorLLH(arr_exp, arr_mc, 365., llh_model=llh_model,
+                             mode="all", nsource=25, scramble=False,
+                             nsource_bounds=(-Nexp / 2., Nexp / 2.)
+                                            if not energy else (0., Nexp / 2.),
+                             seed=np.random.randint(2**32),
+                             **kwargs)
+    else:
+        llh = PointSourceLLH(arr_exp, arr_mc, 365., llh_model=llh_model,
+                             mode="all", nsource=25, scramble=False,
+                             nsource_bounds=(-Nexp / 2., Nexp / 2.)
+                                            if not energy else (0., Nexp / 2.),
+                             seed=np.random.randint(2**32),
+                             **kwargs)
 
     return llh
 

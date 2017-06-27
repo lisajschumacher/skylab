@@ -15,6 +15,7 @@ from skylab.psLLH import MultiPointSourceLLH
 import utils
 
 logging.getLogger("skylab.psLLH.PointSourceLLH").setLevel(logging.INFO)
+logging.getLogger("skylab.priorllh.PriorLLH").setLevel(logging.INFO)
 
 # convert test statistic to a p-value for a given point
 pVal_func = lambda TS, dec: -np.log10(0.5 * (chi2(len(llh.params)).sf(TS)
@@ -29,17 +30,24 @@ label = dict(TS=r"$\mathcal{TS}$",
 if __name__=="__main__":
 
     plt = utils.plotting(backend="pdf")
-
-    # This calculates the classicLLH, i.e. only directional information and gamma=2 fixed
-    llh, mc = utils.startup(Nsrc=10, fixed_gamma=True) 
-
+    # This sets whether or not we choose the template fit with fixed gamma
+    fixed_gamma=True
+    src_dec = 0.
+    src_ra = np.pi
+    src_sigma = np.radians(30.)
+    llh, mc = utils.startup(Nsrc=25, fixed_gamma=fixed_gamma,
+                            src_dec=src_dec, src_ra=src_ra
+                            ) 
     print(llh)
-
     # iterator of all-sky scan with follow up scans of most interesting points
     for i, (scan, hotspot) in enumerate(llh.all_sky_scan(
-                                nside=2**6, follow_up_factor=1,
+                                nside=2**4, follow_up_factor=1,
                                 pVal=pVal_func,
-                                hemispheres=dict(Full=np.radians([-90., 90.])))):
+                                hemispheres=dict(Full=np.radians([-90., 90.])),
+                                pdec=src_dec+0.1,
+                                pra=src_ra+0.1,
+                                psig=src_sigma)
+                                ):
 
         if i > 0:
             # break after first follow up
@@ -69,21 +77,24 @@ if __name__=="__main__":
         for llh in llh._sams.itervalues():
             ax.scatter(np.pi - llh.exp["ra"], np.arcsin(llh.exp["sinDec"]), 1,
                        marker="x",
-                       color=plt.gca()._get_lines.color_cycle.next(),
+                       #color=plt.gca()._get_lines.color_cycle.next(),
                        alpha=0.2)#, rasterized=True)
     else:
-        ax.scatter(np.pi - llh.exp["ra"], np.arcsin(llh.exp["sinDec"]), 1,
-                   marker="x",
-                   color=plt.gca()._get_lines.color_cycle.next(),
-                   alpha=0.2)#, rasterized=True)
-    '''
+        ax.scatter(np.pi - llh.exp["ra"], np.arcsin(llh.exp["sinDec"]), 10,
+                   marker="o",
+                   #color=plt.gca()._get_lines.color_cycle.next(),
+                   alpha=0.05)#, rasterized=True)
+    #'''
     if not os.path.exists("figures"):
         os.makedirs("figures")
 
     fig.savefig("figures/skymap_pVal.pdf", dpi=256)
 
-    #plt.show()
-    #plt.close("all")
+    if fixed_gamma:
+        fig, ax = utils.skymap(plt, scan['prior'], cmap=cmap,
+                               rasterized=True)
+
+        fig.savefig("figures/prior.pdf", dpi=256)
 
     for key in ["TS"] + llh.params:
         eps = 0.1 if key != "TS" else 0.0

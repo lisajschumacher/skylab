@@ -8,7 +8,11 @@ import numpy as np
 import data
 
 from seaborn import cubehelix_palette, set_palette
-# Custom colors and colormaps
+'''
+# Custom colors and colormaps using seaborn
+# Cubehelix palettes have a gradient in hue and darkness
+# Makes them look nice in in both color and gray-scale prints 
+'''
 colors = cubehelix_palette(6, start=0, rot=1, dark=0.2, light=0.75, reverse=True, hue=1)
 cmap = cubehelix_palette(start=0, rot=1, dark=0., light=0.75, reverse=True, hue=1, as_cmap=True)
 set_palette(colors)
@@ -33,14 +37,16 @@ def startup(NN=1, multi=False, **kwargs):
 
 def plotting(backend="QT4Agg"):
     import matplotlib as mpl
+    # The cycler is included in Matplotlib installations > 2.0
+    # Needed for color and other style cyclings
     from cycler import cycler
 
+    # This does not work with Matplotlib 2.0
     #if backend is not None:
     #    mpl.use(backend)
     mpl.rcdefaults()
     rcParams = dict()
     rcParams["backend"] = backend
-    # rcParams["text.size"] = 10
     rcParams["font.size"] = 10
     rcParams["font.family"] = "serif"
     rcParams["font.serif"] = ["Computer Modern"]

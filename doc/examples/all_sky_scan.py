@@ -32,11 +32,13 @@ if __name__=="__main__":
     plt = utils.plotting(backend="pdf")
     # This sets whether or not we choose the template fit with fixed gamma
     fixed_gamma=True
+    fit_gamma = 2.
+    # Source parameters for injection
     src_dec = 0.
     src_ra = np.pi
     src_sigma = np.radians(6.)
     src_gamma = 2.
-    fit_gamma = 2.
+    
     llh, mc = utils.startup(Nsrc=10, fixed_gamma=fixed_gamma,
                             gamma_inj=src_gamma,
                             src_dec=src_dec, src_ra=src_ra
@@ -68,7 +70,7 @@ if __name__=="__main__":
     else:
         cmap = None # plt.cm.brg
     """
-    # Custom colormap using cubehelix
+    # Custom colormap using cubehelix from seaborn, see utils
     cmap = utils.cmap
 
     fig, ax = utils.skymap(plt, scan["pVal"], cmap=cmap,
@@ -89,6 +91,7 @@ if __name__=="__main__":
                    #color=plt.gca()._get_lines.color_cycle.next(),
                    alpha=0.05)#, rasterized=True)
     #'''
+    
     if not os.path.exists("figures"):
         os.makedirs("figures")
 
@@ -113,6 +116,3 @@ if __name__=="__main__":
                                rasterized=True)
 
         fig.savefig("figures/skymap_" + key +".pdf", dpi=256)
-
-        #plt.show()
-        #plt.close("all")

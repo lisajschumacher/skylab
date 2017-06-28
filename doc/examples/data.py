@@ -72,6 +72,7 @@ def MC(N=1000):
 def init(Nexp, NMC, energy=True, **kwargs):
     Nsrc = kwargs.pop("Nsrc", 0)
     fixed_gamma = kwargs.pop("fixed_gamma", False)
+    add_prior = kwargs.pop("add_prior", False)
     fit_gamma = kwargs.pop("fit_gamma", 2.)
 
     arr_exp = exp(Nexp - Nsrc)
@@ -110,7 +111,7 @@ def init(Nexp, NMC, energy=True, **kwargs):
     else:
         llh_model = UniformLLH(sinDec_bins=max(3, Nexp // 200),
                                sinDec_range=[-1., 1.])
-    if fixed_gamma:
+    if add_prior:
         llh = PriorLLH(arr_exp, arr_mc, 365., llh_model=llh_model,
                              mode="all", nsource=25, scramble=False,
                              nsource_bounds=(-Nexp / 2., Nexp / 2.)

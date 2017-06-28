@@ -32,16 +32,21 @@ if __name__=="__main__":
     plt = utils.plotting(backend="pdf")
     # This sets whether or not we choose the template fit with fixed gamma
     fixed_gamma=True
+    add_prior=True
     fit_gamma = 2.
     # Source parameters for injection
     src_dec = 0.
     src_ra = np.pi
     src_sigma = np.radians(6.)
     src_gamma = 2.
+    print "Important parameters: "
+    print "fixed_gamma is ", fixed_gamma
+    print "add_prior is ", add_prior
     
     llh, mc = utils.startup(Nsrc=10, fixed_gamma=fixed_gamma,
                             gamma_inj=src_gamma,
-                            src_dec=src_dec, src_ra=src_ra
+                            src_dec=src_dec, src_ra=src_ra,
+                            add_prior=add_prior
                             ) 
     print(llh)
     # iterator of all-sky scan with follow up scans of most interesting points
@@ -97,13 +102,14 @@ if __name__=="__main__":
 
     fig.savefig("figures/skymap_pVal.pdf", dpi=256)
 
-    if fixed_gamma:
+    if add_prior:
         fig, ax = utils.skymap(plt, scan['prior'], cmap=cmap,
                                rasterized=True)
 
         fig.savefig("figures/prior.pdf", dpi=256)
 
     for key in ["TS"] + llh.params:
+        if fixed_gamma and key == "gamma": continue # skip gamma, if fixed
         eps = 0.1 if key != "TS" else 0.0
         vmin, vmax = np.percentile(scan[key], [eps, 100. - eps])
         vmin = np.floor(max(0, vmin))

@@ -44,8 +44,11 @@ def plotting(backend="QT4Agg"):
     # This does not work with Matplotlib 2.0
     #if backend is not None:
     #    mpl.use(backend)
+
+    # Start with default settings
     mpl.rcdefaults()
     rcParams = dict()
+    # ... better set backend as rcParam
     rcParams["backend"] = backend
     rcParams["font.size"] = 10
     rcParams["font.family"] = "serif"
@@ -56,6 +59,7 @@ def plotting(backend="QT4Agg"):
     rcParams["figure.dpi"] = 72.27
     rcParams["figure.figsize"] = (tw, tw / 1.6)
     rcParams["figure.autolayout"] = True
+    # Prop_cycle is new in Matplotlib 2.0
     rcParams["axes.prop_cycle"] = cycler("color", colors)
     rcParams["axes.labelsize"] = 10
     rcParams["xtick.labelsize"] = 10

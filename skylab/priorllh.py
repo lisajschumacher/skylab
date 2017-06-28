@@ -38,8 +38,19 @@ from . import psLLH
 
 class PriorLLH(psLLH.PointSourceLLH):
 
+	r"""
+	PointSource and Base functionality,
+	slightly modified all-sky-scan (and working on event selection) (to do)
+	See PointSourceLLH and BaseLLh for more information
+
+	Suggested tests: (To do)
+	- Put a flat zero prior map into this function and compare with standard psLLH
+	- Put a large prior-sigma into this function (~180 deg?) and compare
+	"""
+	
 	# The log-likelihood function will be taylor-expanded around this treshold
 	# value; see llh method.
+	_aval = 1e-3
 	
 	def __init__(self, *args, **kwargs):
 		super(PriorLLH, self).__init__(*args, **kwargs)
@@ -47,8 +58,8 @@ class PriorLLH(psLLH.PointSourceLLH):
 	# In Case of wanting to change the init ...
 	def __init__(self, exp, mc, livetime, llh_model, scramble=True, mode="box",
 				 delta_ang=np.deg2rad(10.), thresh_S=0., **kwargs):
-		super(PriorLLH, self).__init__(exp, mc, livetime, llh_model, scramble=scramble, mode=mode,
-				 delta_ang=delta_ang, thresh_S=thresh_S, **kwargs)
+		super(PriorLLH, self).__init__(exp, mc, livetime, llh_model, scramble=scramble,
+				mode=mode, delta_ang=delta_ang, thresh_S=thresh_S, **kwargs)
 	'''
 
 	def all_sky_scan(self, nside=128, follow_up_factor=2, hemispheres=None,
@@ -59,6 +70,12 @@ class PriorLLH(psLLH.PointSourceLLH):
 		grid with `nside`, follow-up scans are done with a finer
 		binning, while conserving the number of scan points by only
 		evaluating the most promising grid points.
+		
+		### New: ###
+		Add a spatial prior on the TS values already optimized for ns and gamma
+		Fit the hotspot on the prior-TS and return these results
+		-> the Prior selects the interesing region and pulls the spatial fit
+		### ---- ###
 
 		Parameters
 		----------
@@ -76,7 +93,17 @@ class PriorLLH(psLLH.PointSourceLLH):
 				default the p-value is equal the test statistic. The p-value
 				must be monotonic increasing, because follow-up scans focus
 				on high values.
-
+				
+		Keyword arguments
+		-----------------
+		prior : array, length = hp.nside2npix(nside), optional
+				prior map to be added onto ts map, already log10 applied
+		alternatives :
+			pdec, pra, psig : floats, optional
+				give position and spread of a Gaussian prior,
+				which will be calculated in this function, if 'prior'
+				(see above) is not given
+				
 		Returns
 		-------
 		iterator
@@ -112,15 +139,25 @@ class PriorLLH(psLLH.PointSourceLLH):
 		npoints = hp.nside2npix(nside)
 		ts = np.zeros(npoints, dtype=np.float)
 		xmin = np.zeros_like(ts, dtype=[(p, np.float) for p in self.params])
-
-		prior_dec = kwargs.pop("pdec", 0.)
-		prior_ra = kwargs.pop("pra", np.pi)
-		prior_sigma = kwargs.pop("psig", np.radians(6.))
-		logger.info("Adding Gaussian prior at (dec, ra)=({0:1.2f},{1:1.2f}) rad,".format(prior_dec, prior_ra)
-					+"sigma is {0:1.2f} deg".format(prior_sigma))
 		
-		# Calculate prior central direction 
-		mean_vec = UnitSphericalRepresentation(Angle(prior_ra, u.radian), Angle(prior_dec, u.radian))
+		# Pull a prior map, if given
+		prior = kwargs.pop("prior", None)
+		# If a prior is given, it has to have the same shape as ts
+		if prior is not None:
+			assert(len(prior) == len(ts))
+			calc_prior = False
+		# If no prior is given, pull parameters for Gaussian prior
+		else:
+			prior_dec = kwargs.pop("pdec", 0.)
+			prior_ra = kwargs.pop("pra", np.pi)
+			prior_sigma = kwargs.pop("psig", np.radians(6.))
+			# Calculate prior central direction 
+			mean_vec = UnitSphericalRepresentation(Angle(prior_ra, u.radian), Angle(prior_dec, u.radian))
+			# Make sure that the prior really is calculated for each iteration
+			calc_prior = True
+			
+		logger.info("Adding Gaussian prior at (dec, ra)=({0:1.2f},{1:1.2f}) rad,".format(np.degrees(prior_dec), np.degrees(prior_ra))
+					+"sigma is {0:1.2f} deg".format(np.degrees(prior_sigma)))		
 
 		niterations = 1
 		while True:
@@ -136,6 +173,16 @@ class PriorLLH(psLLH.PointSourceLLH):
 
 			# Interpolate previous scan results on new grid.
 			ts = hp.get_interp_val(ts, theta, ra)
+
+			# Calculate the prior on the new grid, or
+			# If the prior is given directly into the function, interpolate it now
+			if calc_prior:
+				map_vec = UnitSphericalRepresentation(Angle(ra, u.radian),
+													  Angle(dec, u.radian))
+				prior = -1.*np.power((map_vec-mean_vec).norm(), 2) / prior_sigma**2
+			else:
+				prior = hp.get_interp_val(prior, theta, ra)
+				
 			pvalue = pVal(ts, np.sin(dec))
 
 			xmin = np.array(zip(
@@ -185,9 +232,7 @@ class PriorLLH(psLLH.PointSourceLLH):
 			# Here, the actual scan is done.
 			ts, xmin = self._scan(ra[mask], dec[mask], ts, xmin, mask)
 
-			## Now we add our template ##
-			map_vec = UnitSphericalRepresentation(Angle(ra, u.radian), Angle(dec, u.radian))
-			prior = -1.*np.power((map_vec-mean_vec).norm(), 2) / prior_sigma**2 
+			## Now we add the prior ##
 			ts += prior
 
 			pvalue = pVal(ts, np.sin(dec))

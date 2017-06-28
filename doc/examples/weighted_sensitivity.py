@@ -20,12 +20,12 @@ if __name__ == "__main__":
     llh, mc = utils.startup()
     print(llh)
 
-    N = 10
-    Gamma = np.linspace(1., 4., N)
+    N = 4
+    Gamma = np.linspace(2., 3., N)
 
     fig, ax = plt.subplots()
 
-    for energy in [True, False]:
+    for energy in [True]: #, False]:
 
         l = "w/"
         if not energy:
@@ -69,4 +69,4 @@ if __name__ == "__main__":
 
     fig.savefig("figures/nevents.pdf")
 
-    plt.show()
+    #plt.show()

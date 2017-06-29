@@ -14,7 +14,7 @@ from seaborn import cubehelix_palette, set_palette
 # Makes them look nice in in both color and gray-scale prints 
 '''
 colors = cubehelix_palette(6, start=0, rot=1, dark=0.2, light=0.75, reverse=True, hue=1)
-cmap = cubehelix_palette(start=0, rot=1, dark=0., light=0.75, reverse=True, hue=1, as_cmap=True)
+cmap = cubehelix_palette(start=0, rot=1, dark=0., light=0.9, reverse=True, hue=1, as_cmap=True)
 set_palette(colors)
 
 

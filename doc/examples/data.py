@@ -24,7 +24,7 @@ log_sig = 0.2
 logE_res = 0.1
 
 # fix seed to reproduce same results
-np.random.seed(1)
+np.random.seed(1337)
 
 def exp(N=100):
     r"""Create uniformly distributed data on sphere. """

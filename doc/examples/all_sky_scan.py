@@ -30,9 +30,11 @@ label = dict(TS=r"$\mathcal{TS}$",
 if __name__=="__main__":
 
     plt = utils.plotting(backend="pdf")
+    nside = 2**4
     # This sets whether or not we choose the template fit with fixed gamma
     fixed_gamma=True
     add_prior=True
+    prior = None #np.zeros(hp.nside2npix(nside)) # None
     fit_gamma = 2.
     # Source parameters for injection
     src_dec = 0.
@@ -51,11 +53,12 @@ if __name__=="__main__":
     print(llh)
     # iterator of all-sky scan with follow up scans of most interesting points
     for i, (scan, hotspot) in enumerate(llh.all_sky_scan(
-                                nside=2**4, follow_up_factor=1,
+                                nside=nside, follow_up_factor=1,
                                 pVal=pVal_func,
                                 hemispheres=dict(Full=np.radians([-90., 90.])),
+                                prior=prior,
                                 pdec=src_dec,
-                                pra=src_ra,
+                                pra=src_ra+src_sigma*3.,
                                 psig=src_sigma,
                                 fit_gamma=fit_gamma)
                                 ):

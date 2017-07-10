@@ -30,17 +30,22 @@ label = dict(TS=r"$\mathcal{TS}$",
 if __name__=="__main__":
 
     plt = utils.plotting(backend="pdf")
-    nside = 2**4
+    nside = 2**6
     # This sets whether or not we choose the template fit with fixed gamma
     fixed_gamma = True
     add_prior = True
-    prior = None #np.zeros(hp.nside2npix(nside)) # None
+    prior = None #np.zeros(hp.nside2npix(nside)) # None will calculate a Gaussian Prior
     fit_gamma = 2.
     # Source parameters for injection
     src_dec = 0.
     src_ra = np.pi
     src_sigma = np.radians(6.)
     src_gamma = 2.
+    # For prior
+    shift = 5.
+    pdec = src_dec + 0. * src_sigma
+    pra = src_ra + shift * src_sigma
+
     print "Important parameters: "
     print "fixed_gamma is ", fixed_gamma
     print "add_prior is ", add_prior
@@ -57,8 +62,8 @@ if __name__=="__main__":
                                 pVal=pVal_func,
                                 hemispheres=dict(Full=np.radians([-90., 90.])),
                                 prior=prior,
-                                pdec=src_dec,
-                                pra=src_ra,
+                                pdec=pdec,
+                                pra=pra,
                                 psig=src_sigma,
                                 fit_gamma=fit_gamma)
                                 ):
@@ -107,16 +112,24 @@ if __name__=="__main__":
                        #color=plt.gca()._get_lines.color_cycle.next(),
                        alpha=0.2)#, rasterized=True)
     else:
-        ax.scatter(np.pi - hotspot["Full"]["best"]["ra"], hotspot["Full"]["best"]["dec"], 10,
-                   marker="x",
-                   color='lightgreen',
-                   alpha=0.45)
-        ax.text(np.pi, np.pi/2.,
+        ax.text(np.pi+0.5, np.pi/2.,
                 "pVal: {:1.2f} \n TS: {:1.2f}".format(hotspot["Full"]["best"]["pVal"], hotspot["Full"]["best"]["TS"]))
-        ax.scatter(np.pi - src_ra, src_dec, 10,
+        ax.scatter(np.pi - hotspot["Full"]["best"]["ra"], hotspot["Full"]["best"]["dec"], 20,
                    marker="x",
-                   color='lightblue',
-                   alpha=0.45)
+                   color='green',
+                   alpha=0.4,
+                   label="Hotspot fit")
+        ax.scatter(np.pi - src_ra, src_dec, 10,
+                   marker="d",
+                   color='blue',
+                   alpha=0.4,
+                   label="Injection")
+        ax.scatter(np.pi - pra, pdec, 10,
+                   marker="o",
+                   color='red',
+                   alpha=0.4,
+                   label="Prior center")
+        plt.legend(loc=1)
     #'''
     
     if not os.path.exists("figures"):

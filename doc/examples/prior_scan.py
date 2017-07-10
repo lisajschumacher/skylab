@@ -30,7 +30,7 @@ label = dict(TS=r"$\mathcal{TS}$",
 if __name__=="__main__":
 
     plt = utils.plotting(backend="pdf")
-    nside = 2**4
+    nside = 2**6
     # This sets whether or not we choose the template fit with fixed gamma
     fixed_gamma = True
     add_prior = True
@@ -38,21 +38,24 @@ if __name__=="__main__":
     fit_gamma = 2.
     # Source parameters for injection
     src_dec = 0.
+    src_ra = np.pi
+
     src_sigma = np.radians(6.)
     src_gamma = 2.
     
     # We want to test several separations of source and prior
     # Up to 5 sigma for now
     N = 6
-    src_ra_arr = np.arange(N) * src_sigma + np.pi
+    pra_arr = np.arange(N) * src_sigma + src_ra
+    pdec = np.arange(N) * 0. * src_sigma + src_dec
 
-    for j, src_ra in enumerate(src_ra_arr):
+    for j, pra in enumerate(pra_arr):
         info_string = "deflection"+str(j)+"_"
         
         # The source is always at the same position...
         llh, mc = utils.startup(Nsrc=10, fixed_gamma=fixed_gamma,
                                 gamma_inj=src_gamma,
-                                src_dec=src_dec, src_ra=src_ra_arr[0],
+                                src_dec=src_dec, src_ra=src_ra,
                                 add_prior=add_prior
                                 )
 
@@ -63,8 +66,8 @@ if __name__=="__main__":
                                             pVal=pVal_func,
                                             hemispheres=dict(Full=np.radians([-90., 90.])),
                                             prior=prior,
-                                            pdec=src_dec,
-                                            pra=src_ra,
+                                            pdec=pdec,
+                                            pra=pra,
                                             psig=src_sigma,
                                             fit_gamma=fit_gamma)
                                             ):
@@ -99,16 +102,24 @@ if __name__=="__main__":
                            #color=plt.gca()._get_lines.color_cycle.next(),
                            alpha=0.2)#, rasterized=True)
         else:
-            ax.scatter(np.pi - hotspot["Full"]["best"]["ra"], hotspot["Full"]["best"]["dec"], 10,
-                       marker="x",
-                       color='lightgreen',
-                       alpha=0.45)
-            ax.text(np.pi, np.pi/2.,
+            ax.text(np.pi+0.5, np.pi/2.,
                     "pVal: {:1.2f} \n TS: {:1.2f}".format(hotspot["Full"]["best"]["pVal"], hotspot["Full"]["best"]["TS"]))
-            ax.scatter(np.pi - src_ra, src_dec, 10,
+            ax.scatter(np.pi - hotspot["Full"]["best"]["ra"], hotspot["Full"]["best"]["dec"], 20,
                        marker="x",
-                       color='lightblue',
-                       alpha=0.45)
+                       color='green',
+                       alpha=0.4,
+                       label="Hotspot fit")
+            ax.scatter(np.pi - src_ra, src_dec, 10,
+                       marker="d",
+                       color='blue',
+                       alpha=0.4,
+                       label="Injection")
+            ax.scatter(np.pi - pra, pdec, 10,
+                       marker="o",
+                       color='red',
+                       alpha=0.4,
+                       label="Prior center")
+            plt.legend(loc=1)
         #'''
 
         fig.savefig("figures/"+info_string+"skymap_pVal.pdf", dpi=256)
@@ -124,14 +135,24 @@ if __name__=="__main__":
                                #color=plt.gca()._get_lines.color_cycle.next(),
                                alpha=0.2)#, rasterized=True)
             else:
-                ax.scatter(np.pi - hotspot["Full"]["best"]["ra"], hotspot["Full"]["best"]["dec"], 10,
+                ax.text(np.pi+0.5, np.pi/2.,
+                        "pVal: {:1.2f} \n TS: {:1.2f}".format(hotspot["Full"]["best"]["pVal"], hotspot["Full"]["best"]["TS"]))
+                ax.scatter(np.pi - hotspot["Full"]["best"]["ra"], hotspot["Full"]["best"]["dec"], 20,
                            marker="x",
                            color='green',
-                           alpha=0.45)
+                           alpha=0.4,
+                           label="Hotspot fit")
                 ax.scatter(np.pi - src_ra, src_dec, 10,
-                           marker="x",
+                           marker="d",
                            color='blue',
-                           alpha=0.45)
+                           alpha=0.4,
+                           label="Injection")
+                ax.scatter(np.pi - pra, pdec, 10,
+                           marker="o",
+                           color='red',
+                           alpha=0.4,
+                           label="Prior center")
+                plt.legend(loc=1)
             #'''
 
             fig.savefig("figures/"+info_string+"prior.pdf", dpi=256)
@@ -150,4 +171,4 @@ if __name__=="__main__":
                                    rasterized=True)
 
             fig.savefig("figures/"+info_string+"skymap_" + key +".pdf", dpi=256)
-            plt.close("all")
+        plt.close("all")

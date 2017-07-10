@@ -156,7 +156,7 @@ class PriorLLH(psLLH.PointSourceLLH):
 			# Make sure that the prior really is calculated for each iteration
 			calc_prior = True
 			
-			logger.info("Adding Gaussian prior at (dec, ra)=({0:1.2f},{1:1.2f}) rad,".format(np.degrees(prior_dec), np.degrees(prior_ra))
+			logger.info("Adding Gaussian prior at (dec, ra)=({0},{1}) rad,".format(np.degrees(prior_dec), np.degrees(prior_ra))
 					+"sigma is {0:1.2f} deg".format(np.degrees(prior_sigma)))		
 
 		niterations = 1

@@ -83,8 +83,8 @@ def init(Nexp, NMC, energy=True, **kwargs):
         src_ra = kwargs.pop("src_ra", np.pi)
         gamma_inj = kwargs.pop("gamma_inj", 2.)
         print("Injecting Point source with {0} events, at (dec, ra)=({1:1.2f},{2:1.2f}) rad".format(Nsrc, src_dec, src_ra))
-        print("Spectral index of the Source is {0:1.2f}".format(gamma_inj))
-        print("This will be fitted with a fixed gamma of {0:1.2f}".format(fit_gamma))
+        print("Spectral index of the injected Source is {0:1.2f}".format(gamma_inj))
+        if fixed_gamma: print("This will be fitted with a fixed gamma of {0:1.2f}".format(fit_gamma))
         inj = PointSourceInjector(gamma_inj, sinDec_bandwidth=1, seed=0)
         inj.fill(src_dec, arr_mc, 333.)
 

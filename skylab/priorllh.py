@@ -154,6 +154,8 @@ class PriorLLH(psLLH.PointSourceLLH):
 			# Calculate prior central direction 
 			mean_vec = UnitSphericalRepresentation(Angle(prior_ra, u.radian), Angle(prior_dec, u.radian))
 			# Make sure that the prior really is calculated for each iteration
+			# Maybe we want to change this for computational reasons
+			# TODO
 			calc_prior = True
 			
 			logger.info("Adding Gaussian prior at (dec, ra)=({0},{1}) rad,".format(np.degrees(prior_dec), np.degrees(prior_ra))

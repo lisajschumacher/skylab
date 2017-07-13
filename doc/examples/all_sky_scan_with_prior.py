@@ -15,6 +15,7 @@ from skylab.psLLH import MultiPointSourceLLH
 import utils
 
 logging.getLogger("skylab.psLLH.PointSourceLLH").setLevel(logging.INFO)
+logging.getLogger("skylab.priorllh.PriorLLH").setLevel(logging.INFO)
 
 # convert test statistic to a p-value for a given point
 pVal_func = lambda TS, dec: -np.log10(0.5 * (chi2(len(llh.params)).sf(TS)
@@ -28,18 +29,45 @@ label = dict(TS=r"$\mathcal{TS}$",
 if __name__=="__main__":
     
     backend = "svg"
-    extension = ".svg"
+    extension = "_prior.svg"
     
     plt = utils.plotting(backend=backend)
-    nside = 2**4
-        
-    llh, mc = utils.startup(Nsrc=10) 
+    nside = 2**6
+    # This sets whether or not we choose the template fit with fixed gamma
+    fixed_gamma = True
+    add_prior = True
+    prior = None #np.zeros(hp.nside2npix(nside)) # None will calculate a Gaussian Prior
+    fit_gamma = 2.
+    # Source parameters for injection
+    src_dec = 0.
+    src_ra = np.pi
+    src_sigma = np.radians(6.)
+    src_gamma = 2.
+    # For prior
+    shift = 0.
+    pdec = src_dec + 0. * src_sigma
+    pra = src_ra + shift * src_sigma
+
+    print "Important parameters: "
+    print "fixed_gamma is ", fixed_gamma
+    print "add_prior is ", add_prior
+    
+    llh, mc = utils.startup(Nsrc=10, fixed_gamma=fixed_gamma,
+                            gamma_inj=src_gamma,
+                            src_dec=src_dec, src_ra=src_ra,
+                            add_prior=add_prior
+                            ) 
     print(llh)
     # iterator of all-sky scan with follow up scans of most interesting points
     for i, (scan, hotspot) in enumerate(llh.all_sky_scan(
                                 nside=nside, follow_up_factor=1,
                                 pVal=pVal_func,
-                                hemispheres=dict(Full=np.radians([-90., 90.])))
+                                hemispheres=dict(Full=np.radians([-90., 90.])),
+                                prior=prior,
+                                pdec=pdec,
+                                pra=pra,
+                                psig=src_sigma,
+                                fit_gamma=fit_gamma)
                                 ):
 
         if i > 0:
@@ -78,13 +106,51 @@ if __name__=="__main__":
                    #color=plt.gca()._get_lines.color_cycle.next(),
                    alpha=0.05)#, rasterized=True)
     #'''
+    '''
+    if isinstance(llh, MultiPointSourceLLH):
+        for llh in llh._sams.itervalues():
+            ax.scatter(np.pi - llh.exp["ra"], np.arcsin(llh.exp["sinDec"]), 1,
+                       marker="x",
+                       #color=plt.gca()._get_lines.color_cycle.next(),
+                       alpha=0.2)#, rasterized=True)
+    else:
+        ax.text(np.pi+0.5, np.pi/2.,
+                "pVal: {:1.2f} \n TS: {:1.2f}".format(hotspot["Full"]["best"]["pVal"], hotspot["Full"]["best"]["TS"]))
+        ax.scatter(np.pi - hotspot["Full"]["best"]["ra"], hotspot["Full"]["best"]["dec"], 20,
+                   marker="x",
+                   color='green',
+                   alpha=0.4,
+                   label="Hotspot fit")
+        ax.scatter(np.pi - src_ra, src_dec, 10,
+                   marker="d",
+                   color='blue',
+                   alpha=0.4,
+                   label="Injection")
+        ax.scatter(np.pi - pra, pdec, 10,
+                   marker="o",
+                   color='red',
+                   alpha=0.4,
+                   label="Prior center")
+        plt.legend(loc=1)
+    #'''
     
     if not os.path.exists("figures"):
         os.makedirs("figures")
 
     fig.savefig("figures/skymap_pVal"+extension, dpi=256)
 
+    if add_prior:
+        fig, ax = utils.skymap(plt, scan['prior'], cmap=cmap,
+                               rasterized=True)
+
+        fig.savefig("figures/prior"+extension, dpi=256)
+        fig, ax = utils.skymap(plt, np.exp(scan['prior']), cmap=cmap,
+                               rasterized=True)
+
+        fig.savefig("figures/prior_exp"+extension, dpi=256)
+
     for key in ["TS"] + llh.params:
+        if fixed_gamma and key == "gamma": continue # skip gamma, if fixed
         eps = 0.1 if key != "TS" else 0.0
         vmin, vmax = np.percentile(scan[key], [eps, 100. - eps])
         vmin = np.floor(max(0, vmin))

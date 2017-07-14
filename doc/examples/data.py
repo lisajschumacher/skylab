@@ -17,6 +17,7 @@ from skylab.psLLH import PointSourceLLH, MultiPointSourceLLH
 from skylab.ps_model import UniformLLH, EnergyLLH, PowerLawLLH
 from skylab.ps_injector import PointSourceInjector
 from skylab.priorllh import PriorLLH
+from skylab.stacking_priorllh import StackingPriorLLH
 
 mrs = np.radians(1.)
 mrs_min = np.radians(0.05)
@@ -75,22 +76,25 @@ def init(Nexp, NMC, energy=True, **kwargs):
     add_prior = kwargs.pop("add_prior", False)
     fit_gamma = kwargs.pop("fit_gamma", 2.)
 
-    arr_exp = exp(Nexp - Nsrc)
     arr_mc = MC(NMC)
 
     if Nsrc > 0:
-        src_dec = kwargs.pop("src_dec", 0.)
-        src_ra = kwargs.pop("src_ra", np.pi)
+        src_dec = kwargs.pop("src_dec", np.array([0.]))
+        src_ra = kwargs.pop("src_ra", np.array([np.pi]))
         gamma_inj = kwargs.pop("gamma_inj", 2.)
-        print("Injecting Point source with {0} events, at (dec, ra)=({1:1.2f},{2:1.2f}) rad".format(Nsrc, src_dec, src_ra))
+        arr_exp = exp(Nexp - Nsrc*len(src_dec))
         print("Spectral index of the injected Source is {0:1.2f}".format(gamma_inj))
         if fixed_gamma: print("This will be fitted with a fixed gamma of {0:1.2f}".format(fit_gamma))
         inj = PointSourceInjector(gamma_inj, sinDec_bandwidth=1, seed=0)
-        inj.fill(src_dec, arr_mc, 333.)
+        for s_dec,s_ra in zip(src_dec,src_ra):
+            print("Injecting Point source with {0} events, at (dec, ra)=({1:1.2f},{2:1.2f}) rad".format(Nsrc, s_dec, s_ra))
+            inj.fill(s_dec, arr_mc, 333.)
 
-        source = inj.sample(src_ra, Nsrc, poisson=False).next()[1]
-
-        arr_exp = np.append(arr_exp, source)
+            source = inj.sample(s_ra, Nsrc, poisson=False).next()[1]
+            
+            arr_exp = np.append(arr_exp, source)
+    else:
+        arr_exp = exp(Nexp)
 
     if energy and not fixed_gamma:
         """
@@ -112,7 +116,7 @@ def init(Nexp, NMC, energy=True, **kwargs):
         llh_model = UniformLLH(sinDec_bins=max(3, Nexp // 200),
                                sinDec_range=[-1., 1.])
     if add_prior:
-        llh = PriorLLH(arr_exp, arr_mc, 365., llh_model=llh_model,
+        llh = StackingPriorLLH(arr_exp, arr_mc, 365., llh_model=llh_model,
                              mode="all", nsource=25, scramble=False,
                              nsource_bounds=(-Nexp / 2., Nexp / 2.)
                                             if not energy else (0., Nexp / 2.),

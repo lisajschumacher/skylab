@@ -34,10 +34,10 @@ label = dict(TS=r"$\mathcal{TS}$",
 if __name__=="__main__":
     
     backend = "svg"
-    extension = "_prior.svg"    
+    extension = "_multi_prior.png"    
     plt = utils.plotting(backend=backend)
 
-    nside = 2**5
+    nside = 2**6
 
     # This sets whether or not we choose the template fit with fixed gamma
     fixed_gamma = True

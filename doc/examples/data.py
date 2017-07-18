@@ -81,6 +81,8 @@ def init(Nexp, NMC, energy=True, **kwargs):
     if Nsrc > 0:
         src_dec = kwargs.pop("src_dec", np.array([0.]))
         src_ra = kwargs.pop("src_ra", np.array([np.pi]))
+        src_dec = np.atleast_1d(src_dec)
+        src_ra = np.atleast_1d(src_ra)
         gamma_inj = kwargs.pop("gamma_inj", 2.)
         arr_exp = exp(Nexp - Nsrc*len(src_dec))
         print("Spectral index of the injected Source is {0:1.2f}".format(gamma_inj))
@@ -135,14 +137,23 @@ def init(Nexp, NMC, energy=True, **kwargs):
 def multi_init(n, Nexp, NMC, **kwargs):
     energy = kwargs.pop("energy", False)
 
+    Nsrc = kwargs.pop("Nsrc", 0)
+    fixed_gamma = kwargs.pop("fixed_gamma", False)
+    add_prior = kwargs.pop("add_prior", False)
+    fit_gamma = kwargs.pop("fit_gamma", 2.)
     llh = MultiPointSourceLLH(nsource=25,
-                              nsource_bounds=(-Nexp / 2., Nexp / 2.)
-                                             if not energy else (0., Nexp / 2.),
-                              seed=np.random.randint(2**32),
-                              **kwargs)
+                                nsource_bounds=(-Nexp / 2., Nexp / 2.)
+                                                 if not energy else (0., Nexp / 2.),
+                                seed=np.random.randint(2**32),
+                                **kwargs)
 
     for i in xrange(n):
-        llh.add_sample(str(i), init(Nexp, NMC, energy=energy))
+        llh_i =  init(Nexp, NMC, energy=energy,
+                    Nsrc=Nsrc, fixed_gamma=fixed_gamma,
+                    fit_gamma=fit_gamma, add_prior=add_prior,
+                    **kwargs
+                    )
+        llh.add_sample(str(i), llh_i)
 
     return llh
 

@@ -26,12 +26,15 @@ def startup(NN=1, multi=False, **kwargs):
     n = 4
     Nexp = 10000 // NN
     NMC = 500000 // NN
+    ncpu=1
     if multi:
-        llh = data.multi_init(n, Nexp, NMC, ncpu=4, **kwargs)
+        llh = data.multi_init(n, Nexp, NMC, ncpu=ncpu, **kwargs)
         mc = dict([(i, data.MC(NMC)) for i in range(n)])
+        print("Done with multi")
     else:
-        llh = data.init(Nexp, NMC, ncpu=4, **kwargs)
+        llh = data.init(Nexp, NMC, ncpu=ncpu, **kwargs)
         mc = data.MC(NMC)
+        print("Done with single")
 
     return llh, mc
 

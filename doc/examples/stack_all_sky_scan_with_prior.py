@@ -37,7 +37,7 @@ if __name__=="__main__":
     extension = "_multi_prior.png"    
     plt = utils.plotting(backend=backend)
 
-    nside = 2**6
+    nside = 2**4
 
     # This sets whether or not we choose the template fit with fixed gamma
     fixed_gamma = True
@@ -45,7 +45,7 @@ if __name__=="__main__":
     prior = None #np.zeros(hp.nside2npix(nside)) # None will calculate a Gaussian Prior
     fit_gamma = 2.
     # Source parameters for injection
-    nUHECRs = 10
+    nUHECRs = 3
     src_dec = np.arcsin(np.random.uniform(-1,1,nUHECRs))
     src_ra = np.random.uniform(0., np.pi*2., nUHECRs)
     src_sigma = np.random.uniform(0.8, 1.2, nUHECRs) * np.radians(6.)

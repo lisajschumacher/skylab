@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 # python packages
+import sys
 from copy import deepcopy
 from itertools import product
 
@@ -183,7 +184,8 @@ class ClassicLLH(NullModel):
             Livetime to scale the Monte Carlo with
 
         """
-
+        print("Call!")
+        sys.stdout.flush()
         hist, bins = np.histogram(exp["sinDec"], density=True,
                                   bins=self.sinDec_bins,
                                   range=self.sinDec_range)

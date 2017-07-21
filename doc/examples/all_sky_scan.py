@@ -34,7 +34,7 @@ if __name__=="__main__":
     nside = 2**4
         
     llh, mc = utils.startup(multi=True) 
-    # print(llh)
+    print(llh)
     # iterator of all-sky scan with follow up scans of most interesting points
     for i, (scan, hotspot) in enumerate(llh.all_sky_scan(
                                 nside=nside, follow_up_factor=1,

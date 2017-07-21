@@ -10,11 +10,11 @@ import data
 from seaborn import cubehelix_palette, set_palette
 '''
 # Custom colors and colormaps using seaborn
-# Cubehelix palettes have a gradient in hue and darkness
+# Cubehelix palettes have a gradient in color and lightness/darkness
 # Makes them look nice in in both color and gray-scale prints 
 '''
-colors = cubehelix_palette(6, start=0, rot=1, dark=0.2, light=0.75, reverse=True, hue=1)
-cmap = cubehelix_palette(start=0, rot=1, dark=0., light=0.9, reverse=True, hue=1, as_cmap=True)
+colors = cubehelix_palette(6, start=0.15, rot=1.1, dark=0.1, light=0.7, reverse=True, hue=2)
+cmap = cubehelix_palette(as_cmap=True, start=0.2, rot=0.9, dark=0., light=0.9, reverse=True, hue=1)
 set_palette(colors)
 
 
@@ -26,15 +26,13 @@ def startup(NN=1, multi=False, **kwargs):
     n = 4
     Nexp = 10000 // NN
     NMC = 500000 // NN
-    ncpu=1
+    ncpu = 4
     if multi:
         llh = data.multi_init(n, Nexp, NMC, ncpu=ncpu, **kwargs)
         mc = dict([(i, data.MC(NMC)) for i in range(n)])
-        print("Done with multi")
     else:
         llh = data.init(Nexp, NMC, ncpu=ncpu, **kwargs)
         mc = data.MC(NMC)
-        print("Done with single")
 
     return llh, mc
 

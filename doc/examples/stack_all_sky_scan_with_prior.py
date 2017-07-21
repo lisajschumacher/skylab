@@ -17,6 +17,7 @@ import utils
 logging.getLogger("skylab.psLLH.PointSourceLLH").setLevel(logging.INFO)
 logging.getLogger("skylab.priorllh.PriorLLH").setLevel(logging.INFO)
 logging.getLogger("skylab.stacking_priorllh.StackingPriorLLH").setLevel(logging.INFO)
+logging.getLogger("skylab.stacking_priorllh.MultiStackingPriorLLH").setLevel(logging.INFO)
 
 # convert test statistic to a p-value for a given point
 pVal_func = lambda TS, dec: -np.log10(0.5 * (chi2(len(llh.params)).sf(TS)
@@ -34,18 +35,18 @@ label = dict(TS=r"$\mathcal{TS}$",
 if __name__=="__main__":
     
     backend = "svg"
-    extension = "_multi_prior.png"    
+    extension = "_multi_sample_multi_prior.png"    
     plt = utils.plotting(backend=backend)
 
-    nside = 2**4
-
+    nside = 2**6
+    multi = True # work with multiple different samples
     # This sets whether or not we choose the template fit with fixed gamma
     fixed_gamma = True
     add_prior = True
     prior = None #np.zeros(hp.nside2npix(nside)) # None will calculate a Gaussian Prior
     fit_gamma = 2.
     # Source parameters for injection
-    nUHECRs = 3
+    nUHECRs = 5
     src_dec = np.arcsin(np.random.uniform(-1,1,nUHECRs))
     src_ra = np.random.uniform(0., np.pi*2., nUHECRs)
     src_sigma = np.random.uniform(0.8, 1.2, nUHECRs) * np.radians(6.)
@@ -60,9 +61,10 @@ if __name__=="__main__":
     print "add_prior is ", add_prior
     
     llh, mc = utils.startup(Nsrc=5, fixed_gamma=fixed_gamma, add_prior=add_prior,
-                            gamma_inj=src_gamma,
+                            gamma_inj=src_gamma, mulit=multi,
                             src_dec=src_dec, src_ra=src_ra
-                            ) #"""
+                            )
+    #~ llh, mc = utils.startup(multi=True, fixed_gamma=fixed_gamma, add_prior=add_prior)                            
     print(llh)
     # iterator of all-sky scan with follow up scans of most interesting points
     for i, (scan, hotspots) in enumerate(llh.all_sky_scan(
@@ -110,6 +112,7 @@ if __name__=="__main__":
         os.makedirs("figures")
 
     what_to_plot = ["preTS", "postTS", "allPrior"]
+
     for key in what_to_plot + llh.params:
         if fixed_gamma and key == "gamma": continue # skip gamma, if fixed
         eps = 0.1 if key not in what_to_plot else 0.0
@@ -131,6 +134,5 @@ if __name__=="__main__":
                        label="Hotspot fit")
         fig.savefig("figures/skymap_" + key + extension, dpi=256)
         plt.close("all")
-    # new ts map?
     best_ts_hotspots = np.array([hi["Full"]["best"]["TS"] for hi in hotspots])
     print best_ts_hotspots, best_ts_hotspots.sum()

@@ -17,7 +17,7 @@ from skylab.psLLH import PointSourceLLH, MultiPointSourceLLH
 from skylab.ps_model import UniformLLH, EnergyLLH, PowerLawLLH
 from skylab.ps_injector import PointSourceInjector
 from skylab.priorllh import PriorLLH
-from skylab.stacking_priorllh import StackingPriorLLH
+from skylab.stacking_priorllh import StackingPriorLLH, MultiStackingPriorLLH
 
 mrs = np.radians(1.)
 mrs_min = np.radians(0.05)
@@ -135,13 +135,13 @@ def init(Nexp, NMC, energy=True, **kwargs):
     return llh
 
 def multi_init(n, Nexp, NMC, **kwargs):
-    energy = kwargs.pop("energy", False)
+    energy = kwargs.pop("energy", True)
 
     Nsrc = kwargs.pop("Nsrc", 0)
     fixed_gamma = kwargs.pop("fixed_gamma", False)
     add_prior = kwargs.pop("add_prior", False)
     fit_gamma = kwargs.pop("fit_gamma", 2.)
-    llh = MultiPointSourceLLH(nsource=25,
+    llh = MultiStackingPriorLLH(nsource=25,
                                 nsource_bounds=(-Nexp / 2., Nexp / 2.)
                                                  if not energy else (0., Nexp / 2.),
                                 seed=np.random.randint(2**32),

@@ -184,8 +184,7 @@ class ClassicLLH(NullModel):
             Livetime to scale the Monte Carlo with
 
         """
-        print("Call!")
-        sys.stdout.flush()
+
         hist, bins = np.histogram(exp["sinDec"], density=True,
                                   bins=self.sinDec_bins,
                                   range=self.sinDec_range)

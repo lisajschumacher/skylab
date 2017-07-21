@@ -83,7 +83,6 @@ class PointSourceLLH(basellh.BaseLLH):
 
     def __init__(self, exp, mc, livetime, llh_model, scramble=True, mode="box",
                  delta_ang=np.deg2rad(10.), thresh_S=0., **kwargs):
-        print(kwargs)
         super(PointSourceLLH, self).__init__(**kwargs)
 
         # Add sine declination to experimental data if not available.
@@ -388,8 +387,6 @@ class MultiPointSourceLLH(basellh.BaseLLH):
 
     """
     def __init__(self, *args, **kwargs):
-        print(args)
-        print(kwargs)
         super(MultiPointSourceLLH, self).__init__(*args, **kwargs)
         self._enums = {}
         self._samples = {}

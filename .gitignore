@@ -2,5 +2,6 @@
 *.py[ocd]
 *.swp
 figures/
+*.png
 *.log
 *.log~

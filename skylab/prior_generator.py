@@ -231,14 +231,15 @@ class UhecrPriorGenerator(PriorGenerator):
         sigma_reco = np.array(sigma_reco)[e_mask]
         sigma = np.sqrt(mag_deflection**2 + sigma_reco**2)
         return ra, dec, sigma
+
 # Testing
-if True:
+if __name__=="__main__":
     import matplotlib.pyplot as plt
     from seaborn import cubehelix_palette
     cmap = cubehelix_palette(as_cmap=True, start=0.2, rot=0.9, dark=0., light=0.9, reverse=True, hue=1)
     t = UhecrPriorGenerator(6, np.radians(6), 125, multi=True, data_path="/home/home2/institut_3b/lschumacher/phd_stuff/phd_code_git/data")
 
-    
+
     for i,tm in enumerate(t.template):
         fig = plt.figure(i)
         hp.mollview(tm, fig=i, cmap=cmap)

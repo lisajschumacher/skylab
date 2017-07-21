@@ -76,7 +76,7 @@ class UhecrPriorGenerator(PriorGenerator):
         deflection: in radian
         energy_threshold: in EeV
     """
-    def __init__(self, nside_param, deflection, energy_threshold, data_path):
+    def __init__(self, nside_param, deflection, energy_threshold, data_path, multi=False):
         r"""
         Initialize and calculate the Prior template
         
@@ -94,7 +94,7 @@ class UhecrPriorGenerator(PriorGenerator):
             Path name where to find UHECR data
         """
         super(UhecrPriorGenerator, self).__init__(nside_param)
-        self._template = self.calc_template(self._get_UHECR_positions(deflection, energy_threshold, data_path))        
+        self._template = self.calc_template(self._get_UHECR_positions(deflection, energy_threshold, data_path), multi)        
         
     @property
     def template(self):
@@ -122,7 +122,7 @@ class UhecrPriorGenerator(PriorGenerator):
         self._template = templ
 
     
-    def calc_template(self, params):
+    def calc_template(self, params, multi):
         r"""
         Calculate the Prior template from ra, dec and sigma parameters.
         The single templates are constructed as 2D-symmetric Gaussians 
@@ -136,6 +136,9 @@ class UhecrPriorGenerator(PriorGenerator):
             params: combined array of ra, dec and sigma
                 Can be single float values each or 1D-arrays themselves
                 Should have the same length
+            multi: bool
+                whether or not this metho generates one combined prior or
+                multiple single priors
                 
         returns:
             Prior Template in HealPy map format, normalized to 1
@@ -148,16 +151,23 @@ class UhecrPriorGenerator(PriorGenerator):
         assert(len(t_ra) == len(t_dec))
         assert(len(t_ra) == len(t_sigma))
 
-        _template = super(UhecrPriorGenerator, self).template
+        if multi:
+            _template = np.empty((len(t_ra), hp.nside2npix(self.nside)), dtype=np.float)
+        else:
+            _template = super(UhecrPriorGenerator, self).template
+            
         for i in range(len(t_ra)):
             mean_vec = UnitSphericalRepresentation(Angle(t_ra[i], u.radian), 
                                                    Angle(t_dec[i], u.radian))
             map_vec = UnitSphericalRepresentation(Angle(self.ra, u.radian),
                                                   Angle(self.dec, u.radian))
-            _template += (np.exp(-1.*np.power((map_vec-mean_vec).norm(), 2) / t_sigma[i]**2)
+            if multi:
+                _template[i] = np.exp(-1.*np.power((map_vec-mean_vec).norm(), 2) / t_sigma[i]**2)
+            else:
+                _template += np.array(np.exp(-1.*np.power((map_vec-mean_vec).norm(), 2) / t_sigma[i]**2)
                             / 4. / np.pi / t_sigma[i]**2 )
-        # make it normalized
-        _template /= sum(_template)
+                # make it normalized
+                _template /= np.sum(_template)
         return _template
 
     def _get_UHECR_positions(self, deflection, energy_threshold, data_path,
@@ -222,12 +232,14 @@ class UhecrPriorGenerator(PriorGenerator):
         sigma = np.sqrt(mag_deflection**2 + sigma_reco**2)
         return ra, dec, sigma
 # Testing
-if False:
+if True:
     import matplotlib.pyplot as plt
     from seaborn import cubehelix_palette
     cmap = cubehelix_palette(as_cmap=True, start=0.2, rot=0.9, dark=0., light=0.9, reverse=True, hue=1)
-    t = UhecrPriorGenerator(6, np.radians(6), 0, data_path="/home/home2/institut_3b/lschumacher/phd_stuff/phd_code_git/data")
+    t = UhecrPriorGenerator(6, np.radians(6), 125, multi=True, data_path="/home/home2/institut_3b/lschumacher/phd_stuff/phd_code_git/data")
 
-    fig = plt.figure(1)
-    hp.mollview(t.template, fig=1, cmap=cmap)
-    plt.savefig("test_template.png")
+    
+    for i,tm in enumerate(t.template):
+        fig = plt.figure(i)
+        hp.mollview(tm, fig=i, cmap=cmap)
+        plt.savefig(str(i)+"_test_template.png")

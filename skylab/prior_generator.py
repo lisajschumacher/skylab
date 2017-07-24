@@ -162,7 +162,7 @@ class UhecrPriorGenerator(PriorGenerator):
             map_vec = UnitSphericalRepresentation(Angle(self.ra, u.radian),
                                                   Angle(self.dec, u.radian))
             if multi:
-                _template[i] = np.exp(-1.*np.power((map_vec-mean_vec).norm(), 2) / t_sigma[i]**2)
+                _template[i] = -1.*np.power((map_vec-mean_vec).norm(), 2) / t_sigma[i]**2
             else:
                 _template += np.array(np.exp(-1.*np.power((map_vec-mean_vec).norm(), 2) / t_sigma[i]**2)
                             / 4. / np.pi / t_sigma[i]**2 )

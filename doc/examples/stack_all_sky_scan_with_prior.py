@@ -10,6 +10,7 @@ import numpy as np
 
 # skylab
 from skylab.psLLH import MultiPointSourceLLH
+from skylab.prior_generator import UhecrPriorGenerator
 
 # local
 import utils
@@ -38,12 +39,14 @@ if __name__=="__main__":
     extension = "_multi_sample_multi_prior.png"    
     plt = utils.plotting(backend=backend)
 
-    nside = 2**6
+    nside_param = 4
+    nside = 2**nside_param
     multi = True # work with multiple different samples
     # This sets whether or not we choose the template fit with fixed gamma
     fixed_gamma = True
     add_prior = True
-    prior = None #np.zeros(hp.nside2npix(nside)) # None will calculate a Gaussian Prior
+    pg = UhecrPriorGenerator(nside_param, np.radians(6), 125, "/home/home2/institut_3b/lschumacher/phd_stuff/phd_code_git/data", multi=True)
+    prior = pg.template
     fit_gamma = 2.
     # Source parameters for injection
     nUHECRs = 5
@@ -60,11 +63,11 @@ if __name__=="__main__":
     print "fixed_gamma is ", fixed_gamma
     print "add_prior is ", add_prior
     
-    llh, mc = utils.startup(Nsrc=5, fixed_gamma=fixed_gamma, add_prior=add_prior,
-                            gamma_inj=src_gamma, mulit=multi,
-                            src_dec=src_dec, src_ra=src_ra
-                            )
-    #~ llh, mc = utils.startup(multi=True, fixed_gamma=fixed_gamma, add_prior=add_prior)                            
+    #~ llh, mc = utils.startup(Nsrc=5, fixed_gamma=fixed_gamma, add_prior=add_prior,
+                            #~ gamma_inj=src_gamma, mulit=multi,
+                            #~ src_dec=src_dec, src_ra=src_ra
+                            #~ )
+    llh, mc = utils.startup(multi=True, fixed_gamma=fixed_gamma, add_prior=add_prior)                            
     print(llh)
     # iterator of all-sky scan with follow up scans of most interesting points
     for i, (scan, hotspots) in enumerate(llh.all_sky_scan(

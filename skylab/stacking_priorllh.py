@@ -151,8 +151,8 @@ class StackingPriorLLH(priorllh.PriorLLH):
 		prior = kwargs.pop("prior", None)
 		# If a prior is given, it has to have the same shape as ts
 		if prior is not None:
-			raise("Not yet implemented!!")
-			assert(len(prior) == len(ts))
+			#~ raise("Not yet implemented!!")
+			assert(np.shape(prior)[1] == len(ts))
 			calc_prior = False
 		# If no prior is given, pull parameters for Gaussian prior
 		else:
@@ -164,8 +164,6 @@ class StackingPriorLLH(priorllh.PriorLLH):
 			assert(len(prior_dec) == len(prior_sigma))
 			
 			# Make sure that the prior really is calculated for each iteration
-			# Maybe we want to change this for computational reasons
-			# TODO
 			calc_prior = True		
 
 		niterations = 1
@@ -245,35 +243,39 @@ class StackingPriorLLH(priorllh.PriorLLH):
 					 dtypes=[np.float for p in self.params], usemask=False
 					 )
 			hotspots = []
-
-			for i,(p_dec,p_ra,p_sig) in enumerate(zip(prior_dec, prior_ra, prior_sigma)):
-				# Define the mean vector with UHECR position
-				mean_vec = UnitSphericalRepresentation(Angle(p_ra, u.radian),
-													   Angle(p_dec, u.radian))
+			###### TO DO ######
+			#~ raise("Go work here :< ")
+			if calc_prior:
+				counter = len(prior_dec)
+			else:
+				counter = len(prior)
+			for i in range(counter):				
 				# Calculate the prior on the new grid, or
 				# If the prior is given directly into the function, interpolate it now
 				if calc_prior:
+					# Define the mean vector with UHECR position
+					mean_vec = UnitSphericalRepresentation(Angle(prior_ra[i], u.radian),
+													   Angle(prior_dec[i], u.radian))
 					map_vec = UnitSphericalRepresentation(Angle(ra, u.radian),
 														  Angle(dec, u.radian))
-					prior = -1.*np.power((map_vec-mean_vec).norm(), 2) / p_sig**2
+					current_prior = -1.*np.power((map_vec-mean_vec).norm(), 2) / prior_sig[i]**2
+					logger.info("Adding Gaussian prior at (dec, ra)=({0:1.2f},{1:1.2f}) rad,".format(np.degrees(prior_dec[i]), np.degrees(prior_ra[i]))
+					+"sigma is {0:1.2f} deg".format(np.degrees(prior_sig[i])))
 				else:
-					raise("Not yet implemented!!")
-					prior = hp.get_interp_val(prior, theta, ra)
+					current_prior = hp.get_interp_val(prior[i], theta, ra)
 					
-				logger.info("Adding Gaussian prior at (dec, ra)=({0:1.2f},{1:1.2f}) rad,".format(np.degrees(p_dec), np.degrees(p_ra))
-					+"sigma is {0:1.2f} deg".format(np.degrees(p_sig)))
 				## Now we add the prior ##
-				p_ts = ts + prior				
+				p_ts = ts + current_prior				
 				pvalue = pVal(p_ts, np.sin(dec))
 				names = ["TS", "pVal", "prior"]
 				## ... and find the hotspot
 				hotspots.append(self._hotspot(numpy.lib.recfunctions.append_fields(
 										result, names=names,
-										data=[p_ts, pvalue, prior],
+										data=[p_ts, pvalue, current_prior],
 										dtypes=[np.float for n in names], usemask=False),
 								nside, hemispheres, drange, pVal, logger)
 								)
-				result["allPrior"] += np.exp(prior)
+				result["allPrior"] += np.exp(current_prior)
 				result["postTS"] += np.where(p_ts>0.,p_ts,np.zeros_like(p_ts))
 
 			yield result, np.array(hotspots)
@@ -560,8 +562,8 @@ class MultiStackingPriorLLH(psLLH.MultiPointSourceLLH):
 		prior = kwargs.pop("prior", None)
 		# If a prior is given, it has to have the same shape as ts
 		if prior is not None:
-			raise("Not yet implemented!!")
-			assert(len(prior) == len(ts))
+			#~ raise("Not yet implemented!!")
+			assert(np.shape(prior)[1] == len(ts))
 			calc_prior = False
 		# If no prior is given, pull parameters for Gaussian prior
 		else:
@@ -573,8 +575,6 @@ class MultiStackingPriorLLH(psLLH.MultiPointSourceLLH):
 			assert(len(prior_dec) == len(prior_sigma))
 			
 			# Make sure that the prior really is calculated for each iteration
-			# Maybe we want to change this for computational reasons
-			# TODO
 			calc_prior = True		
 
 		niterations = 1
@@ -650,39 +650,43 @@ class MultiStackingPriorLLH(psLLH.MultiPointSourceLLH):
 							 )
 
 			result = numpy.lib.recfunctions.append_fields(
-					 result, names=self.params, data=[xmin[p] for p in self.params],
+				     result, names=self.params, data=[xmin[p] for p in self.params],
 					 dtypes=[np.float for p in self.params], usemask=False
 					 )
 			hotspots = []
-
-			for i,(p_dec,p_ra,p_sig) in enumerate(zip(prior_dec, prior_ra, prior_sigma)):
-				# Define the mean vector with UHECR position
-				mean_vec = UnitSphericalRepresentation(Angle(p_ra, u.radian),
-													   Angle(p_dec, u.radian))
+			###### TO DO ######
+			#~ raise("Go work here :< ")
+			if calc_prior:
+				counter = len(prior_dec)
+			else:
+				counter = len(prior)
+			for i in range(counter):				
 				# Calculate the prior on the new grid, or
 				# If the prior is given directly into the function, interpolate it now
 				if calc_prior:
+					# Define the mean vector with UHECR position
+					mean_vec = UnitSphericalRepresentation(Angle(prior_ra[i], u.radian),
+													   Angle(prior_dec[i], u.radian))
 					map_vec = UnitSphericalRepresentation(Angle(ra, u.radian),
 														  Angle(dec, u.radian))
-					prior = -1.*np.power((map_vec-mean_vec).norm(), 2) / p_sig**2
+					current_prior = -1.*np.power((map_vec-mean_vec).norm(), 2) / prior_sig[i]**2
+					logger.info("Adding Gaussian prior at (dec, ra)=({0:1.2f},{1:1.2f}) rad,".format(np.degrees(prior_dec[i]), np.degrees(prior_ra[i]))
+					+"sigma is {0:1.2f} deg".format(np.degrees(prior_sig[i])))
 				else:
-					raise("Not yet implemented!!")
-					prior = hp.get_interp_val(prior, theta, ra)
+					current_prior = hp.get_interp_val(prior[i], theta, ra)
 					
-				logger.info("Adding Gaussian prior at (dec, ra)=({0:1.2f},{1:1.2f}) rad,".format(np.degrees(p_dec), np.degrees(p_ra))
-					+"sigma is {0:1.2f} deg".format(np.degrees(p_sig)))
 				## Now we add the prior ##
-				p_ts = ts + prior				
+				p_ts = ts + current_prior				
 				pvalue = pVal(p_ts, np.sin(dec))
 				names = ["TS", "pVal", "prior"]
 				## ... and find the hotspot
 				hotspots.append(self._hotspot(numpy.lib.recfunctions.append_fields(
 										result, names=names,
-										data=[p_ts, pvalue, prior],
+										data=[p_ts, pvalue, current_prior],
 										dtypes=[np.float for n in names], usemask=False),
 								nside, hemispheres, drange, pVal, logger)
 								)
-				result["allPrior"] += np.exp(prior)
+				result["allPrior"] += np.exp(current_prior)
 				result["postTS"] += np.where(p_ts>0.,p_ts,np.zeros_like(p_ts))
 
 			yield result, np.array(hotspots)

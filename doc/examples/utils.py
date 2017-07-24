@@ -13,8 +13,8 @@ from seaborn import cubehelix_palette, set_palette
 # Cubehelix palettes have a gradient in color and lightness/darkness
 # Makes them look nice in in both color and gray-scale prints 
 '''
-colors = cubehelix_palette(6, start=0.15, rot=1.1, dark=0.1, light=0.7, reverse=True, hue=2)
-cmap = cubehelix_palette(as_cmap=True, start=0.2, rot=0.9, dark=0., light=0.9, reverse=True, hue=1)
+colors = cubehelix_palette(6, start=.5, rot=-1.1, dark=0.15, light=0.7, reverse=True, hue=2)
+cmap = cubehelix_palette(as_cmap=True, start=.5, rot=-0.9, dark=0., light=0.9, reverse=True, hue=1)
 set_palette(colors)
 
 

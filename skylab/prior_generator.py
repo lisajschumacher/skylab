@@ -115,7 +115,7 @@ class UhecrPriorGenerator(PriorGenerator):
         Make sure that basic prior template requirements are fulfilled
         """
         # length should fit
-        assert(len(templ) == len(self._template))
+        assert(np.shape(templ) == np.shape(self._template))
         # and the values should be between 0 and 1
         assert(min(templ)>=0)
         assert(max(templ)<=1)
@@ -167,7 +167,7 @@ class UhecrPriorGenerator(PriorGenerator):
                 _template += np.array(np.exp(-1.*np.power((map_vec-mean_vec).norm(), 2) / t_sigma[i]**2)
                             / 4. / np.pi / t_sigma[i]**2 )
                 # make it normalized
-                _template /= np.sum(_template)
+        if not multi: _template /= np.sum(_template)
         return _template
 
     def _get_UHECR_positions(self, deflection, energy_threshold, data_path,

@@ -26,13 +26,14 @@ import logging
 
 import numpy as np
 import numpy.lib.recfunctions
+import healpy as hp
 import scipy.interpolate
 
 from . import utils
 from . import ps_injector
 
 class PriorInjector(ps_injector.PointSourceInjector):
-	r"""Multiple point source injector with prior template
+    r"""Multiple point source injector with prior template
 
     The source's energy spectrum follows a power law.
 
@@ -48,6 +49,9 @@ class PriorInjector(ps_injector.PointSourceInjector):
 
     Parameters
     ----------
+    nside_param : int, required
+        For Healpy map, such that it fits the template
+        healpy.NSIDE = 2**nside_param
     seed : int, optional
         Random seed initializing the pseudo-random number generator.
 
@@ -55,10 +59,13 @@ class PriorInjector(ps_injector.PointSourceInjector):
     -----------
     gamma : float
         Spectral index; use positive values for falling spectrum.
+    template : numpy.array
+        Healpy map with nside = 2**self._nside_param;
+        Used as prior for selecting source positions
     sinDec_range : tuple(float)
         Shrink allowed declination range.
     sinDec_bandwith : float
-        Select events inside declination band around source position.
+        Set to large value, all events are pre-selected for injection.
     src_dec : float
         Declination of source position
     e_range : tuple(float)
@@ -67,3 +74,33 @@ class PriorInjector(ps_injector.PointSourceInjector):
         Pseudo-random number generator
 
     """
+    def __init__(self, gamma, template, nside_param, **kwargs):
+        self._nside_param = np.int(nside_param)
+        super(PriorInjector, self).__init__(gamma, **kwargs)
+        self.sinDec_bandwidth = 10
+        self.template = template
+        
+    @property
+    def template(self):
+        r"""
+        Prior template of all selected UHECR events
+        Translated to HealPy map scheme with certain nside parameter
+        Sum of all entries normed to one
+        """
+        return self._template
+    
+    @template.setter
+    def template(self, templ):
+        r"""
+        Prior template of all selected UHECR events
+        Translated to HealPy map scheme with certain nside parameter
+        Sum of all entries normed to one
+        
+        Make sure that basic prior template requirements are fulfilled
+        """
+        # length should fit
+        assert(len(templ) == hp.nside2npix(2**self._nside_param))
+        # and the values should be between 0 and 1
+        assert(min(templ)>=0)
+        assert(max(templ)<=1)
+        self._template = templ

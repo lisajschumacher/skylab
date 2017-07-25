@@ -71,10 +71,33 @@ class UhecrPriorGenerator(PriorGenerator):
     UhecrPriorGenerator builds a prior template from UHECR data
     
     Parameters:
-        nside:
-        data_path:
-        deflection: in radian
-        energy_threshold: in EeV
+        nside_param : int
+            used to generate healpy map with nside=2**nside_param
+            
+        data_path: string
+            where to find the UHECR data
+            
+        deflection: float
+            Magnetic deflection parameter in radian, usually np.radians(3 or 6)
+            will be scaled with energy of UHECR to calculate average deflection
+            
+        energy_threshold: float
+            in EeV, between 0 and max(energy of UHECR), used to
+            select events according to their energy
+
+    Attributes:
+        ra, dec : arrays of floats
+            Coordinates of the generated healpy template
+        
+        nside : int
+            Healpy nside of the generated template
+        
+        template : array
+            Healpy map representing the prior template, with
+            parameters nside/ra,dec. Generated from UHECR data
+        
+        n_uhecr : int > 0
+            Number of UHECR events selected for generating the template
     """
     def __init__(self, nside_param, deflection, energy_threshold, data_path, multi=False):
         r"""
@@ -181,12 +204,13 @@ class UhecrPriorGenerator(PriorGenerator):
             map_vec = UnitSphericalRepresentation(Angle(self.ra, u.radian),
                                                   Angle(self.dec, u.radian))
             if multi:
-                _template[i] = -1.*np.power((map_vec-mean_vec).norm(), 2) / t_sigma[i]**2
+                _template[i] = -1.*np.power((map_vec-mean_vec).norm(), 2) / t_sigma[i]**2 / 2.
             else:
-                _template += np.array(np.exp(-1.*np.power((map_vec-mean_vec).norm(), 2) / t_sigma[i]**2)
-                            / 4. / np.pi / t_sigma[i]**2 )
+                _temp = np.array(np.exp(-1.*np.power((map_vec-mean_vec).norm(), 2) / t_sigma[i]**2 / 2.))
+                _template += _temp/sum(_temp)
                 # make it normalized
-        if not multi: _template /= np.sum(_template)
+        if not multi:
+            _template /= np.sum(_template)
         return _template
 
     def _get_UHECR_positions(self, deflection, energy_threshold, data_path,
@@ -259,7 +283,7 @@ if __name__=="__main__":
     from seaborn import cubehelix_palette
     cmap = cubehelix_palette(as_cmap=True, start=0.2, rot=0.9, dark=0., light=0.9, reverse=True, hue=1)
     mb = [True, False]
-    e_th = [125, 0]
+    e_th = [125, 100]
     for et,multi in zip(e_th, mb):
         t = UhecrPriorGenerator(6, np.radians(6), et, multi=multi, data_path="/home/home2/institut_3b/lschumacher/phd_stuff/phd_code_git/data")
         print("Selected {} CRs".format(t.n_uhecr))

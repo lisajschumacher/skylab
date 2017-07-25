@@ -120,6 +120,25 @@ class UhecrPriorGenerator(PriorGenerator):
         assert(min(templ)>=0)
         assert(max(templ)<=1)
         self._template = templ
+        
+    @property
+    def n_uhecr(self):
+        r"""
+        Get the number of uhecr events that passed the energy threshold
+        """
+        return self._n_uhecr
+
+    @n_uhecr.setter
+    def n_uhecr(self, n):
+        r"""
+        Set the number of uhecr events that passed the energy threshold
+        """
+        n = int(n)
+        if n<=0:
+            print("Invalid number of UHECR events, will be set to standard value of 1")
+            self._n_uhecr = 1
+        else:
+            self._n_uhecr = n
 
     
     def calc_template(self, params, multi):
@@ -208,6 +227,7 @@ class UhecrPriorGenerator(PriorGenerator):
             ra_temp.extend(np.radians(data['RA']))
             if f=="TelArrayUHECR.txt":
                 # Implement energy shift of 13%, see paper
+                # Maybe this has to be updated with new results from TA and Auger
                 e_temp.extend(data['E']*(1.-0.13))
                 sigma_reco.extend(len(data)*[np.radians(1.5)])
             else:
@@ -230,6 +250,7 @@ class UhecrPriorGenerator(PriorGenerator):
         mag_deflection = deflection*100./np.array(e_temp)[e_mask]
         sigma_reco = np.array(sigma_reco)[e_mask]
         sigma = np.sqrt(mag_deflection**2 + sigma_reco**2)
+        self.n_uhecr = len(ra)
         return ra, dec, sigma
 
 # Testing
@@ -237,10 +258,17 @@ if __name__=="__main__":
     import matplotlib.pyplot as plt
     from seaborn import cubehelix_palette
     cmap = cubehelix_palette(as_cmap=True, start=0.2, rot=0.9, dark=0., light=0.9, reverse=True, hue=1)
-    t = UhecrPriorGenerator(6, np.radians(6), 125, multi=True, data_path="/home/home2/institut_3b/lschumacher/phd_stuff/phd_code_git/data")
-
-
-    for i,tm in enumerate(t.template):
-        fig = plt.figure(i)
-        hp.mollview(tm, fig=i, cmap=cmap)
-        plt.savefig(str(i)+"_test_template.png")
+    mb = [True, False]
+    e_th = [125, 0]
+    for et,multi in zip(e_th, mb):
+        t = UhecrPriorGenerator(6, np.radians(6), et, multi=multi, data_path="/home/home2/institut_3b/lschumacher/phd_stuff/phd_code_git/data")
+        print("Selected {} CRs".format(t.n_uhecr))
+        if multi:
+            for i,tm in enumerate(t.template):
+                fig = plt.figure(i)
+                hp.mollview(tm, fig=i, cmap=cmap)
+                plt.savefig(str(i)+"_test_template.png")
+        else:
+            fig = plt.figure(-1)
+            hp.mollview(t.template, fig=-1, cmap=cmap)
+            plt.savefig("full_test_template.png")

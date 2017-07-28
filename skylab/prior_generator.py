@@ -39,8 +39,7 @@ from astropy import units as u
 
 
 class PriorGenerator(object):
-    r"""
-    PriorGenerator builds sky templates based on HealPy maps.
+    r""" PriorGenerator builds sky templates based on HealPy maps.
     The templates can be used as priors for 
     - PriorLLH
     - StackingPriorLLH
@@ -60,15 +59,13 @@ class PriorGenerator(object):
         
     @abc.abstractproperty
     def template(self):
-        r"""
-        Return the healpy array representing the prior template
+        r""" Return the healpy array representing the prior template
         Normed and shifted such that the maximum is 1 and the minimum is larger than zero
         """
-        return np.zeros(hp.nside2npix(self.nside))
+        return np.zeros((1,hp.nside2npix(self.nside)))
 
 class UhecrPriorGenerator(PriorGenerator):
-    r"""
-    UhecrPriorGenerator builds a prior template from UHECR data
+    r""" UhecrPriorGenerator builds a prior template from UHECR data
     
     Parameters:
         nside_param : int
@@ -92,16 +89,17 @@ class UhecrPriorGenerator(PriorGenerator):
         nside : int
             Healpy nside of the generated template
         
-        template : array
+        template_s/m : array
             Healpy map representing the prior template, with
             parameters nside/ra,dec. Generated from UHECR data
+            s : single combined map of all events
+            m : multiple maps for one event each, logarithmic
         
         n_uhecr : int > 0
             Number of UHECR events selected for generating the template
     """
-    def __init__(self, nside_param, deflection, energy_threshold, data_path, multi=False):
-        r"""
-        Initialize and calculate the Prior template
+    def __init__(self, nside_param, deflection, energy_threshold, data_path):
+        r""" Initialize and calculate the Prior templates
         
         Parameters:
             nside_param : int
@@ -117,44 +115,70 @@ class UhecrPriorGenerator(PriorGenerator):
             Path name where to find UHECR data
         """
         super(UhecrPriorGenerator, self).__init__(nside_param)
-        self._template = self.calc_template(self._get_UHECR_positions(deflection, energy_threshold, data_path), multi)        
+        self._template = self.calc_template(
+                            self._get_UHECR_positions(deflection,
+                                    energy_threshold,
+                                    data_path)
+                            )        
         
+    #~ @property
+    #~ def template_s(self):
+        #~ r"""
+        #~ Prior template of all selected UHECR events
+        #~ Translated to HealPy map scheme with certain nside parameter
+        #~ Sum of all entries normed to one
+        #~ """
+        #~ return self._template_s
+    #~ 
+    #~ @template_s.setter
+    #~ def template_s(self, templ):
+        #~ r"""
+        #~ Prior template of all selected UHECR events
+        #~ Translated to HealPy map scheme with certain nside parameter
+        #~ Sum of all entries normed to one
+        #~ 
+        #~ Make sure that basic prior template requirements are fulfilled
+        #~ """
+        #~ # length should fit
+        #~ assert(len(templ) == len(self._template_s))
+        #~ # and the values should be between 0 and 1
+        #~ assert(min(templ)>=0)
+        #~ assert(max(templ)<=1)
+        #~ self._template_s = templ
+
     @property
     def template(self):
-        r"""
-        Prior template of all selected UHECR events
+        r""" Multiple logarithmic Prior templates,
+        for all selected UHECR events individually.
         Translated to HealPy map scheme with certain nside parameter
-        Sum of all entries normed to one
+        Max of all entries is 0 
         """
         return self._template
     
     @template.setter
     def template(self, templ):
-        r"""
-        Prior template of all selected UHECR events
+        r""" Multiple logarithmic Prior templates,
+        for all selected UHECR events individually.
         Translated to HealPy map scheme with certain nside parameter
-        Sum of all entries normed to one
+        Max of all entries is 0 
         
         Make sure that basic prior template requirements are fulfilled
         """
-        # length should fit
+        # shape should fit
         assert(np.shape(templ) == np.shape(self._template))
-        # and the values should be between 0 and 1
-        assert(min(templ)>=0)
-        assert(max(templ)<=1)
+        # and the values should be below zero, i.e. exp() below 1
+        assert(max(templ)<=0)
         self._template = templ
         
     @property
     def n_uhecr(self):
-        r"""
-        Get the number of uhecr events that passed the energy threshold
+        r""" Get the number of uhecr events that passed the energy threshold
         """
         return self._n_uhecr
 
     @n_uhecr.setter
     def n_uhecr(self, n):
-        r"""
-        Set the number of uhecr events that passed the energy threshold
+        r""" Set the number of uhecr events that passed the energy threshold
         """
         n = int(n)
         if n<=0:
@@ -164,9 +188,8 @@ class UhecrPriorGenerator(PriorGenerator):
             self._n_uhecr = n
 
     
-    def calc_template(self, params, multi):
-        r"""
-        Calculate the Prior template from ra, dec and sigma parameters.
+    def calc_template(self, params):
+        r""" Calculate the Prior template from ra, dec and sigma parameters.
         The single templates are constructed as 2D-symmetric Gaussians 
         on position (ra, dec) with width of sigma. All contributions are
         added up to build the complete Prior template or
@@ -193,30 +216,27 @@ class UhecrPriorGenerator(PriorGenerator):
         assert(len(t_ra) == len(t_dec))
         assert(len(t_ra) == len(t_sigma))
 
-        if multi:
-            _template = np.empty((len(t_ra), hp.nside2npix(self.nside)), dtype=np.float)
-        else:
-            _template = super(UhecrPriorGenerator, self).template
+        _template = np.empty((len(t_ra), hp.nside2npix(self.nside)), dtype=np.float)
+        #~ _template_s = super(UhecrPriorGenerator, self).template_s
             
         for i in range(len(t_ra)):
             mean_vec = UnitSphericalRepresentation(Angle(t_ra[i], u.radian), 
                                                    Angle(t_dec[i], u.radian))
             map_vec = UnitSphericalRepresentation(Angle(self.ra, u.radian),
                                                   Angle(self.dec, u.radian))
-            if multi:
-                _template[i] = -1.*np.power((map_vec-mean_vec).norm(), 2) / t_sigma[i]**2 / 2.
-            else:
-                _temp = np.array(np.exp(-1.*np.power((map_vec-mean_vec).norm(), 2) / t_sigma[i]**2 / 2.))
-                _template += _temp/sum(_temp)
-                # make it normalized
-        if not multi:
-            _template /= np.sum(_template)
+            
+            _template[i] = -1.*np.power((map_vec-mean_vec).norm(), 2) / t_sigma[i]**2 / 2.
+            #~ _temp = np.exp(_template_m[i])
+            #~ _template_s += _temp/sum(_temp)
+
+        #~ _template_s /= np.sum(_template_s)
+            
+        #~ return _template_s, _template_m
         return _template
 
     def _get_UHECR_positions(self, deflection, energy_threshold, data_path,
                              files = ["AugerUHECR2014.txt", "TelArrayUHECR.txt"]):
-        """ 
-        Read the UHECR text file(s)
+        """ Read the UHECR text file(s)
         Parameters:
             deflection : float
                         parameter for source extent, called "D" in paper
@@ -281,18 +301,26 @@ class UhecrPriorGenerator(PriorGenerator):
 if __name__=="__main__":
     import matplotlib.pyplot as plt
     from seaborn import cubehelix_palette
-    cmap = cubehelix_palette(as_cmap=True, start=0.2, rot=0.9, dark=0., light=0.9, reverse=True, hue=1)
-    mb = [True, False]
-    e_th = [125, 100]
-    for et,multi in zip(e_th, mb):
-        t = UhecrPriorGenerator(6, np.radians(6), et, multi=multi, data_path="/home/home2/institut_3b/lschumacher/phd_stuff/phd_code_git/data")
-        print("Selected {} CRs".format(t.n_uhecr))
-        if multi:
-            for i,tm in enumerate(t.template):
-                fig = plt.figure(i)
-                hp.mollview(tm, fig=i, cmap=cmap)
-                plt.savefig(str(i)+"_test_template.png")
-        else:
-            fig = plt.figure(-1)
-            hp.mollview(t.template, fig=-1, cmap=cmap)
-            plt.savefig("full_test_template.png")
+    from test_utils import cmap
+    path = "/home/home2/institut_3b/lschumacher/phd_stuff/skylab_git/"
+    t = UhecrPriorGenerator(5, np.radians(6), 0, data_path="/home/home2/institut_3b/lschumacher/phd_stuff/phd_code_git/data")
+    print("Selected {} CRs".format(t.n_uhecr))
+    
+    fig = plt.figure(-1)
+    tm = np.exp(t.template)
+    tm = tm/tm.sum(axis=1)[np.newaxis].T
+    tm = tm.sum(axis=0)
+    hp.mollview(tm, fig=-1, cmap=cmap, rot=[180,0,0])
+    hp.projtext(np.pi/2, 0.01, r"$0^\circ$", color="w", ha="right")
+    hp.projtext(np.pi/2, -0.01, r"$360^\circ$", color="w")
+    hp.projtext(np.pi/2, np.pi, r"$180^\circ$", color="w")
+    plt.savefig(path+"figures/full_test_template.png")
+    
+    for i,tm in enumerate(t.template[:3]):
+        fig = plt.figure(i)
+        hp.mollview(tm, fig=i, cmap=cmap, rot=[180,0,0])
+        hp.projtext(np.pi/2, 0.01, r"$0^\circ$", color="w", ha="right")
+        hp.projtext(np.pi/2, -0.01, r"$360^\circ$", color="w")
+        hp.projtext(np.pi/2, np.pi, r"$180^\circ$", color="w")
+        plt.savefig(path+"figures/"+str(i)+"_test_template.png")
+

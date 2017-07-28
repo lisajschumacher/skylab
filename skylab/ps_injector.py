@@ -60,7 +60,7 @@ def rotate_struct(ev, ra, dec):
     rot["sinDec"] = np.sin(rot_dec)
 
     # Delete Monte Carlo information from sampled events.
-    mc = ["trueRa", "trueDec", "trueE", "ow"]
+    mc = ["trueRa", "trueDec", "trueE", "ow", "dec"]
 
     return numpy.lib.recfunctions.drop_fields(rot, mc)
 

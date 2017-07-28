@@ -5,7 +5,7 @@ import logging
 import healpy as hp
 import numpy as np
 
-import data
+import ic_data
 
 from seaborn import cubehelix_palette, set_palette
 '''
@@ -22,18 +22,26 @@ tw = 5.31
 
 logging.basicConfig(level=logging.WARN)
 
-def startup(n=4, NN=1, multi=False, **kwargs):
-    Nexp = 10000 // NN
-    NMC = 500000 // NN
+def startup(basepath, inipath, multi=False, **kwargs):
     ncpu = 4
+    n_samples = 2
     if multi:
-        llh = data.multi_init(n, Nexp, NMC, ncpu=ncpu, **kwargs)
-        mc = dict([(i, data.MC(NMC)) for i in range(n)])
+        """ Initialize multiple data sets: MC and EXP
+        Initialize injector with multiple data sets
+        Generate Multi LLH Object
+        - load data -> mc, exp
+        - multi_init -> llh (? not useful here ?)
+            -- init -> generate single LLH objects
+        """
+        llh, injector = ic_data.multi_init(n_samples, basepath, inipath, **kwargs)
     else:
-        llh = data.init(Nexp, NMC, ncpu=ncpu, **kwargs)
-        mc = data.MC(NMC)
+        """ Initialize single data sets: MC and EXP
+        Initialize injector with one
+        Generate Normal LLH Object
+        """
+        raise NotImplementedError(">:O")
 
-    return llh, mc
+    return llh, injector
 
 def plotting(backend="QT4Agg"):
     import matplotlib as mpl
@@ -99,6 +107,7 @@ def skymap(plt, vals, **kwargs):
     title = cb.pop("title", None)
 
     p = ax.pcolormesh(lon, lat, Z, **kwargs)
+    plt.hlines(np.radians(-5.), -np.pi, np.pi, color="gray", alpha=0.75, linestyle="--")
 
     cbar = fig.colorbar(p, **cb)
 
@@ -111,3 +120,26 @@ def skymap(plt, vals, **kwargs):
 
     return fig, ax
 
+def get_paths(hostname):
+    if "physik.rwth-aachen.de" in hostname:
+        basepath="/net/scratch_icecube4/user/lschumacher/projects/data/ps_sample/coenders_pub"
+        inipath="/net/scratch_icecube4/user/lschumacher/projects/data/ps_sample/coenders_pub"
+        savepath = "/net/scratch_icecube4/user/lschumacher/projects/stacking"
+        crpath = "/home/home2/institut_3b/lschumacher/phd_stuff/phd_code_git/data"
+
+    elif "M16" in hostname:
+        print("Not up to date! Probably... go check it first")
+        savepath = "/home/icecube/Desktop/pScratch4/lschumacher/projects/stacking"
+        basepath="/home/icecube/Desktop/pScratch4/lschumacher/projects/data/ps_sample/coenders_pub"
+        inipath="/home/icecube/Desktop/pScratch4/lschumacher/projects/data/ps_sample/coenders_pub"
+        crpath = "/home/icecube/phd_stuff/phd_code_git/data"
+        
+    elif "icecube.wisc.edu" in hostname:
+        basepath = "/data/user/coenders/data/MultiYearPointSource/npz"
+        inipath = "/data/user/lschumacher/config_files_ps"
+        savepath = "/data/user/lschumacher/projects/stacking"
+        crpath = "/home/lschumacher/git_repos/general_code_repo/data"
+    else:
+        print("Unknown Host, please go to this function and set your paths accordingly")
+        return None
+    return basepath, inipath, savepath, crpath

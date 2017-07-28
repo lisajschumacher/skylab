@@ -151,7 +151,6 @@ class StackingPriorLLH(priorllh.PriorLLH):
 		prior = kwargs.pop("prior", None)
 		# If a prior is given, it has to have the same shape as ts
 		if prior is not None:
-			#~ raise("Not yet implemented!!")
 			assert(np.shape(prior)[1] == len(ts))
 			calc_prior = False
 		# If no prior is given, pull parameters for Gaussian prior
@@ -243,8 +242,7 @@ class StackingPriorLLH(priorllh.PriorLLH):
 					 dtypes=[np.float for p in self.params], usemask=False
 					 )
 			hotspots = []
-			###### TO DO ######
-			#~ raise("Go work here :< ")
+
 			if calc_prior:
 				counter = len(prior_dec)
 			else:

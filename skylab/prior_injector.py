@@ -31,11 +31,11 @@ import numpy.lib.recfunctions
 import healpy as hp
 import scipy.interpolate
 
-from . import utils
-from . import ps_injector
+#from skylab import utils
+from skylab import ps_injector
 
 class PriorInjector(ps_injector.PointSourceInjector):
-    r"""Multiple point source injector with prior template
+    r""" Multiple point source injector with prior template
 
     The source's energy spectrum follows a power law.
 
@@ -86,8 +86,7 @@ class PriorInjector(ps_injector.PointSourceInjector):
         
     @property
     def template(self):
-        r"""
-        Prior template of all selected UHECR events
+        r""" Prior template of all selected UHECR events
         Translated to HealPy map scheme with certain nside parameter
         Sum of all entries normed to one
         """
@@ -95,8 +94,7 @@ class PriorInjector(ps_injector.PointSourceInjector):
     
     @template.setter
     def template(self, templ):
-        r"""
-        Prior template of all selected UHECR events
+        r""" Prior template of all selected UHECR events
         Translated to HealPy map scheme with certain nside parameter
         Sum of all entries normed to one
         
@@ -105,14 +103,15 @@ class PriorInjector(ps_injector.PointSourceInjector):
         Calculate additionally the sole declination dependence
         """
         # length should fit
-        assert(len(templ) == hp.nside2npix(self._nside))
+        assert(np.shape(templ)[-1] == hp.nside2npix(self._nside))
+        assert(len(templ) == self._n_uhecr)
         # and the values should be between 0 and 1
-        assert(min(templ)>=0)
-        assert(max(templ)<=1)
+        #~ assert((min(templ)>=0).all())
+        #~ assert((max(templ)<=1).all())
         self._template = templ
         
     def _setup(self):
-        r"""Reset solid angle.
+        r""" Reset solid angle.
         Declination range only determined by sinDec_range,
         no additional event selection
         """
@@ -125,7 +124,7 @@ class PriorInjector(ps_injector.PointSourceInjector):
         self._omega = 4. * np.pi
         
     def fill(self, mc, livetime):
-        r"""Fill injector with Monte Carlo events, selecting events
+        r""" Fill injector with Monte Carlo events, selecting events
         around the source position.
 
         Parameters
@@ -206,8 +205,7 @@ class PriorInjector(ps_injector.PointSourceInjector):
         self._weights()
         
     def _weights(self):
-        r"""Setup weights for assuming a power-law flux.
-
+        r""" Setup weights for assuming a power-law flux.
         """
         # Weights given in days; weighted to the point source flux
         self.mc_arr["ow"] *= self.mc_arr["trueE"]**(-self.gamma) / self._omega
@@ -219,8 +217,11 @@ class PriorInjector(ps_injector.PointSourceInjector):
                                weights=self._norm_w, 
                                range=(-np.pi/2., np.pi/2.)
                               )
-        self._signal_acceptance = scipy.interpolate.InterpolatedUnivariateSpline((bins[1:] + bins[:-1]) / 2.,
-                                    n/np.max(n))
+        x=(bins[1:] + bins[:-1]) / 2.
+        y=n*1./np.max(n)
+        #~ x = np.concatenate(([x[0]], x, [x[-1]]))
+        #~ y = np.concatenate(([y[0]], y, [y[-1]]))
+        self._signal_acceptance = scipy.interpolate.InterpolatedUnivariateSpline(x, y)
         
         # Double-check if no weight is dominating the sample.
         if self._norm_w.max() > 0.1:
@@ -228,7 +229,7 @@ class PriorInjector(ps_injector.PointSourceInjector):
                 self._norm_w.max()))
 
     def sample(self, mean_mu, poisson=True):
-        r"""Sample events for given source location.
+        r""" Sample events for given source location.
 
         Parameters
         -----------
@@ -249,6 +250,10 @@ class PriorInjector(ps_injector.PointSourceInjector):
         while True:
                             
             src_dec, src_ra = self._get_source_positions(self._n_uhecr)
+            self._src_dec = src_dec
+            self._src_ra = src_ra
+            self._logging.info("Injecting sources at ra = {} deg".format(np.degrees(src_ra))
+                                +" and dec = {} deg".format(np.degrees(src_dec)))
             acceptance_weighting = self._signal_acceptance(src_dec)
             
             # Generate event numbers using Poisson events.
@@ -261,7 +266,7 @@ class PriorInjector(ps_injector.PointSourceInjector):
                 
             num_sum = np.sum(num, dtype=int)
             self._logging.info("Mean number of events {0:.1f}".format(mean_mu))
-            self._logging.info("Generated number of events {0:d}".format(num_sum))
+            self._logging.info("Generated number of events {}".format(num))
 
             if num_sum < 1:
                 # No events will be sampled.
@@ -309,12 +314,15 @@ class PriorInjector(ps_injector.PointSourceInjector):
     def _get_source_positions(self, n):
         r""" Draw n source positions with (dec,ra) from the template map
         """
-        pix = np.random.choice(np.arange(hp.nside2npix(self._nside)), 
-                               size=n, 
-                               p=self._template, 
-                               replace=True)
-        theta, ra = hp.pix2ang(self._nside, pix)
-        return np.pi/2.-theta, ra
+        dec = np.empty(n)
+        ra = np.empty(n) 
+        for i in xrange(n):
+            pix = np.random.choice(np.arange(hp.nside2npix(self._nside)),  
+                                   p=self._template[i])
+            theta, phi = hp.pix2ang(self._nside, pix)
+            dec[i] = np.pi/2. - theta
+            ra[i] = phi
+        return dec, ra
     
     def _get_dec_band(self, src_dec):
         r""" Get declination band aroudn src_dec position
@@ -329,3 +337,66 @@ class PriorInjector(ps_injector.PointSourceInjector):
         min_sinDec = max(A, sinDec - self.sinDec_bandwidth)
         max_sinDec = min(B, sinDec + self.sinDec_bandwidth)
         return np.arcsin(min_sinDec), np.arcsin(max_sinDec)
+
+# Testing
+if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+    from skylab.prior_generator import UhecrPriorGenerator
+    from test_utils import startup, cmap
+    
+    fixed_gamma = True
+    add_prior = True
+    llh, mc = startup(n=3, NN=4, multi=True, fixed_gamma=fixed_gamma, add_prior=add_prior)
+    lt = dict([(i, 350.+np.random.uniform(-10, +10)) for i in range(len(llh))])
+    nside_param = 6
+    # "/home/home2/institut_3b/lschumacher/phd_stuff/phd_code_git/data"
+    # "/home/lschumacher/git_repos/general_code_repo/data"
+    pg = UhecrPriorGenerator(nside_param,
+                            np.radians(6),
+                            120,
+                            "/home/home2/institut_3b/lschumacher/phd_stuff/phd_code_git/data")
+    tm = np.exp(pg.template)
+    tm = tm/tm.sum(axis=1)[np.newaxis].T
+    injector = PriorInjector(2.,
+                            tm,
+                            n_uhecr=pg.n_uhecr,
+                            nside_param=nside_param)
+    injector.fill(mc, lt)
+    sampler = injector.sample(20, poisson=False)
+
+    num, sam = sampler.next()
+
+    sindec_d = np.empty(np.sum(num))
+    ra_d = np.empty(np.sum(num))
+    c = 0
+    for k,s in sam.iteritems():
+        dc = len(s['sinDec'])
+        sindec_d[c:c+dc] = s['sinDec']
+        ra_d[c:c+dc] = s['ra']
+        c+=dc
+
+    hres = np.zeros(hp.nside2npix(2**nside_param))
+    pix = hp.ang2pix(2**nside_param, np.pi/2. - np.arcsin(sindec_d), ra_d)
+    for p in pix:
+        hres[p]+=1
+    plt.figure(1)
+    cmap.set_under("w")
+    hp.mollview(hp.smoothing(hres, sigma=np.radians(0.5)), cmap=cmap, fig=1, rot=[180,0,0])
+    hp.projtext(np.pi/2, 0.01, r"$0^\circ$", color="w", ha="right")
+    hp.projtext(np.pi/2, -0.01, r"$360^\circ$", color="w")
+    hp.projtext(np.pi/2, np.pi, r"$180^\circ$", color="w")
+    path = "/home/home2/institut_3b/lschumacher/phd_stuff/skylab_git/"
+    plt.savefig(path + "figures/test_injection.png")
+
+    fig = plt.figure(2)
+    tm = tm.sum(axis=0)
+    hp.mollview(tm, fig=-1, cmap=cmap, rot=[180,0,0])
+    hp.projtext(np.pi/2, 0.01, r"$0^\circ$", color="w", ha="right")
+    hp.projtext(np.pi/2, -0.01, r"$360^\circ$", color="w")
+    hp.projtext(np.pi/2, np.pi, r"$180^\circ$", color="w")
+    hp.projscatter(np.pi/2. - injector._src_dec, injector._src_ra, 20,
+                       marker="x",
+                       color="magenta",
+                       alpha=0.5)
+    plt.savefig(path+"figures/test_injection_template.png")
+    

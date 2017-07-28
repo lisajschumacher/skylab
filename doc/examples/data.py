@@ -99,14 +99,6 @@ def init(Nexp, NMC, energy=True, **kwargs):
         arr_exp = exp(Nexp)
 
     if energy and not fixed_gamma:
-        """
-        llh_model = PowerLawLLH(["logE"], min(50, Nexp // 50),
-                                range=[[0.9 * arr_mc["logE"].min(),
-                                        1.1 * arr_mc["logE"].max()]],
-                                sinDec_bins=min(50, Nexp // 50),
-                                sinDec_range=[-1., 1.],
-                                bounds=(0, 5))
-                                #"""
         llh_model = EnergyLLH(sinDec_bins=min(50, Nexp // 50),
                                 sinDec_range=[-1., 1.],
                                 bounds=(0, 5))

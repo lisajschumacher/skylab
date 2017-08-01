@@ -46,11 +46,11 @@ if __name__=="__main__":
     backend = "svg"
     extension = "_testing_hemispheres.png"
     hemispheres = dict(North = np.radians([-5., 90.]), South = np.radians([-90., -5.]))
-    hcolor = dict(North = "cyan", South = "magenta")
+    hcolor = dict(North = "cyan", South = "red")
 
     plt = utils.plotting(backend=backend)
 
-    nside_param = 4
+    nside_param = 5
     nside = 2**nside_param
     
     multi = True # work with multiple different samples
@@ -60,7 +60,7 @@ if __name__=="__main__":
 
     # "/home/home2/institut_3b/lschumacher/phd_stuff/phd_code_git/data"
     # "/home/lschumacher/git_repos/general_code_repo/data"
-    pg = UhecrPriorGenerator(nside_param, np.radians(6), 100, crpath)
+    pg = UhecrPriorGenerator(nside_param, np.radians(6), 90, crpath)
     tm = np.exp(pg.template)
     tm = tm/tm.sum(axis=1)[np.newaxis].T
     src_gamma = 2.
@@ -68,14 +68,15 @@ if __name__=="__main__":
 
     llh, injector = utils.startup(basepath,
                             inipath,
-                            Nsrc=20,
+                            Nsrc=15,
                             fixed_gamma=fixed_gamma,
                             add_prior=add_prior,
                             src_gamma=src_gamma,
                             multi=multi,
                             n_uhecr=pg.n_uhecr,
                             prior=tm,
-                            nside_param=nside_param
+                            nside_param=nside_param,
+                            burn=False
                             )
     #~ print(llh)
     # iterator of all-sky scan with follow up scans of most interesting points
@@ -94,12 +95,6 @@ if __name__=="__main__":
         scan[k] = hp.sphtfunc.smoothing(scan[k], sigma=np.radians(0.5))
 
     eps = 1.
-    """
-    if hasattr(plt.cm, "magma"):
-        cmap = plt.cm.magma
-    else:
-        cmap = None # plt.cm.brg
-    """
     # Custom colormap using cubehelix from seaborn, see utils
     cmap = utils.cmap
 
@@ -116,11 +111,35 @@ if __name__=="__main__":
                    #color=plt.gca()._get_lines.color_cycle.next(),
                    alpha=0.05)#, rasterized=True)
     #'''
+    # Looking at the hotspots and separating them into North and South
+    hk = hemispheres.keys()
+    print "Hemisphere keys:", hk
+    best_hotspots = np.zeros(pg.n_uhecr, dtype=[(p, np.float) for p in hk]
+                                                +[("best", np.float)]
+                                                +[("dec", np.float)]
+                                                +[("ra", np.float)])
 
+    for i,hi in enumerate(hotspots):
+        for h in hk:
+            best_hotspots[h][i] = hi[h]["best"]["TS"]
+        if best_hotspots[hk[0]][i] >= best_hotspots[hk[1]][i]:
+            best_hotspots["best"][i] = best_hotspots[hk[0]][i]
+            best_hotspots["ra"][i] = hi[hk[0]]["best"]["ra"]
+            best_hotspots["dec"][i] = hi[hk[0]]["best"]["dec"]
+        else:
+            best_hotspots["best"][i] = best_hotspots[hk[1]][i]
+            best_hotspots["ra"][i] = hi[hk[1]]["best"]["ra"]
+            best_hotspots["dec"][i] = hi[hk[1]]["best"]["dec"]
+        
+    print "Hotspots:"
+    print best_hotspots.dtype.names
+    print best_hotspots
+
+    # Plotting
     if not os.path.exists("figures"):
         os.makedirs("figures")
 
-    what_to_plot = ["preTS", "postTS", "allPrior"]
+    what_to_plot = ["preTS", "allPrior"] 
 
     for key in what_to_plot + llh.params:
         if fixed_gamma and key == "gamma": continue # skip gamma, if fixed
@@ -135,21 +154,45 @@ if __name__=="__main__":
                                colorbar=dict(title=label[key]),
                                rasterized=True)
         if True:
-            for hi in hotspots:
-                for h in hemispheres.keys():
-                    ax.scatter(np.pi - hi[h]["best"]["ra"], hi[h]["best"]["dec"], 20,
-                           marker="o",
-                           color=hcolor[h],
-                           alpha=0.25,
-                           label="Hotspot fit")
+            for bhi in best_hotspots:
+                ax.scatter(np.pi - bhi["ra"], bhi["dec"], 20,
+                       marker="o",
+                       color="cyan",
+                       alpha=0.25,
+                       label="Hotspot fit")
             ax.scatter(np.pi - injector._src_ra, injector._src_dec, 20,
-                       marker="x",
-                       color=hcolor[h],
-                       alpha=0.5,
+                       marker="d",
+                       color="orange",
+                       alpha=0.25,
                        label="Injected")
         fig.savefig("figures/skymap_" + key + extension, dpi=256)
         plt.close("all")
-    for h in hemispheres.keys():
-        print h
-        best_ts_hotspots = np.array([hi[h]["best"]["TS"] for hi in hotspots])
-        print best_ts_hotspots, best_ts_hotspots.sum()
+    # Now we look at the single results:
+    if False:
+        c=0
+        key="postTS"
+        for i,s in enumerate(llh.postTS):
+            vmin, vmax = np.percentile(s, [0., 100.])
+            vmin = np.floor(max(0, vmin))
+            vmax = min(8, np.ceil(vmax))
+            q = np.ma.masked_array(s)
+            q.mask = np.zeros_like(q, dtype=np.bool)
+            fig, ax = utils.skymap(plt, q, cmap=cmap,
+                                   vmin=vmin, vmax=vmax,
+                                   colorbar=dict(title=label[key]),
+                                   rasterized=True)
+        if True:
+            for bhi in best_hotspots:
+                ax.scatter(np.pi - bhi["ra"], bhi["dec"], 20,
+                       marker="o",
+                       color="cyan",
+                       alpha=0.25,
+                       label="Hotspot fit")
+            ax.scatter(np.pi - injector._src_ra, injector._src_dec, 20,
+                       marker="d",
+                       color="orange",
+                       alpha=0.25,
+                       label="Injected")
+        fig.savefig("figures/skymap_postTS_" + str(c) + extension, dpi=256)
+        plt.close("all")
+        c+=1

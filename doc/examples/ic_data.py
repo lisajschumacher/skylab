@@ -65,8 +65,12 @@ def load_data(basepath, inipath, filename, shuffle_bool=True, burn=True):
     exp = exp[exp["logE"] > 1.]
     exp['ra']=np.random.uniform(0, 2*np.pi, len(exp['ra']))
     if burn:
-        print("Using 10% of experimental data to reduce cpu time ...")
-        exp = np.random.choice(exp, len(exp)/20)
+        part=10
+        print("Using {:.0f}% of experimental data to reduce cpu time ...".format(100*1./part))
+        exp = np.random.choice(exp, len(exp)/part)
+        part=1
+        print("Using {:.0f}% of mc data to reduce cpu time ...".format(100*1./part))
+        mc = np.random.choice(mc, len(mc)/part)
     
     if shuffle_bool==False:
         print("Data is scrambled nevertheless, sorry, not sorry :)")
@@ -128,6 +132,8 @@ def multi_init(n, basepath, inipath, **kwargs):
     nside_param = kwargs.pop("nside_param", 4)
     n_uhecr = kwargs.pop("n_uhecr", 0)
     prior = kwargs.pop("prior", [])
+    burn = kwargs.pop("burn", True)
+    inj_seed = kwargs.pop("inj_seed", None)
     
     # Current standard is to load first 4 files
     filenames = [   "IC40",
@@ -150,11 +156,15 @@ def multi_init(n, basepath, inipath, **kwargs):
                                 **kwargs)
 
     for i in xrange(n):
-        mcdict[i], expdict[i], ltdict[i] = load_data(basepath, inipath, filenames[i])
+        mcdict[i], expdict[i], ltdict[i] = load_data(basepath, inipath, filenames[i], burn=burn)
         
     if Nsrc > 0:
         if add_prior:
-            injector = PriorInjector(src_gamma, prior, nside_param=nside_param, n_uhecr=n_uhecr)
+            injector = PriorInjector(src_gamma,
+                                        prior,
+                                        nside_param=nside_param,
+                                        n_uhecr=n_uhecr,
+                                        seed=inj_seed)
             injector.fill(mcdict, ltdict)
             sampler = injector.sample(Nsrc, poisson=True)
             num, sam = sampler.next()

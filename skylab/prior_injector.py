@@ -212,16 +212,15 @@ class PriorInjector(ps_injector.PointSourceInjector):
         self._raw_flux = np.sum(self.mc_arr["ow"], dtype=np.float)
         self._norm_w = self.mc_arr["ow"] / self._raw_flux
         
-        n, bins = np.histogram(self.mc_arr["trueDec"],
+        n, bins = np.histogram(np.sin(self.mc_arr["trueDec"]),
                                bins=100, 
                                weights=self._norm_w, 
-                               range=(-np.pi/2., np.pi/2.)
+                               range=(-1., 1.)
                               )
         x=(bins[1:] + bins[:-1]) / 2.
         y=n*1./np.max(n)
-        #~ x = np.concatenate(([x[0]], x, [x[-1]]))
-        #~ y = np.concatenate(([y[0]], y, [y[-1]]))
-        self._signal_acceptance = scipy.interpolate.InterpolatedUnivariateSpline(x, y)
+        #~ print(y)
+        self._signal_acceptance = scipy.interpolate.InterpolatedUnivariateSpline(x, y, k=1)
         
         # Double-check if no weight is dominating the sample.
         if self._norm_w.max() > 0.1:
@@ -254,7 +253,7 @@ class PriorInjector(ps_injector.PointSourceInjector):
             self._src_ra = src_ra
             self._logging.info("Injecting sources at ra = {} deg".format(np.degrees(src_ra))
                                 +" and dec = {} deg".format(np.degrees(src_dec)))
-            acceptance_weighting = self._signal_acceptance(src_dec)
+            acceptance_weighting = self._signal_acceptance(np.sin(src_dec))
             
             # Generate event numbers using Poisson events.
             if poisson:

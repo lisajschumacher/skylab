@@ -23,8 +23,7 @@ tw = 5.31
 logging.basicConfig(level=logging.WARN)
 
 def startup(basepath, inipath, multi=False, **kwargs):
-    ncpu = 4
-    n_samples = 2
+    n_samples = 4
     if multi:
         """ Initialize multiple data sets: MC and EXP
         Initialize injector with multiple data sets
@@ -121,6 +120,9 @@ def skymap(plt, vals, **kwargs):
     return fig, ax
 
 def get_paths(hostname):
+    r""" Set paths depending on hostname
+    Returns : basepath, inipath, savepath, crpath
+    """
     if "physik.rwth-aachen.de" in hostname:
         basepath="/net/scratch_icecube4/user/lschumacher/projects/data/ps_sample/coenders_pub"
         inipath="/net/scratch_icecube4/user/lschumacher/projects/data/ps_sample/coenders_pub"

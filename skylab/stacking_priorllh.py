@@ -413,6 +413,90 @@ class StackingPriorLLH(psLLH.PointSourceLLH):
 
 		return fmin, pbest
 
+	def do_trials(self, n_iter=2, mu=None, **kwargs):
+        r"""Create trials of scrambled event maps to estimate the test
+        statistic distribution.
+
+        Parameters
+        ----------
+        src_ra : float
+            Right ascension of source position
+        src_dec : float
+            Declination of source position
+        n_iter : int, optional
+            Number of trials to create
+        mu : Injector, optional
+            Inject additional events into the scrambled map.
+        \*\*kwargs
+            Parameters passed to `fit_source`
+
+        Returns
+        -------
+        ndarray
+            Structured array containing number of injected events
+            ``n_inj``, test statistic ``TS`` and best-fit values for
+            `params` per trial
+
+        """
+        raise NotImplementedError("In Work!")
+        """ To DO:
+        - args for all sky scan
+        - injector
+        - multiprocessing?
+        - result/return
+        """
+        if mu is None:
+            mu = itertools.repeat((0, None))
+
+        inject = [mu.next() for i in range(n_iter)]
+
+        # Minimize negative log-likelihood function for every trial. In case of
+        # multi-processing, each process needs its own sampling seed.
+        if (self.ncpu > 1 and n_iter > self.ncpu and
+                self.ncpu <= multiprocessing.cpu_count()):
+            #~ args = [(
+                #~ self, src_ra, src_dec, True, inject[i][1], kwargs,
+                #~ self.random.randint(2**32)) for i in range(n_iter)
+                #~ ]
+
+            #~ pool = multiprocessing.Pool(self.ncpu)
+            #~ results = pool.map(all_sky_scan, args)
+
+            #~ pool.close()
+            #~ pool.join()
+            raise NotImplementedError("no implementation for ncpu>1")
+        else:
+			""" all sky scan: parameters
+				nside=nside,
+				follow_up_factor=1,
+				pVal=pVal_func,
+				hemispheres=hemispheres,
+				prior=pg.template,
+				fit_gamma=fit_gamma"""
+            #~ results = [
+                #~ self.all_sky_scan(src_ra, src_dec, True, inject[i][1], **kwargs)
+                #~ for i in range(n_iter)
+                #~ ]
+			for i, (scan, hotspots) in enumerate(llh.all_sky_scan(kwargs)):
+
+				if i > 0:
+					# break after first follow-up scan 
+					break
+
+        dtype = [("n_inj", np.int), ("TS", np.float)]
+        dtype.extend((p, np.float) for p in self.params)
+
+        trials = np.empty((n_iter, ), dtype=dtype)
+
+        for i in range(n_iter):
+            trials["n_inj"][i] = inject[i][0]
+            trials["TS"][i] = results[i][0]
+
+            for key in results[i][1]:
+                trials[key][i] = results[i][1][key]
+
+        return trials
+
 class MultiStackingPriorLLH(psLLH.MultiPointSourceLLH):
 	r"""
 	PointSource and Base functionality,

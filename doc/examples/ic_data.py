@@ -156,7 +156,6 @@ def multi_init(n, basepath, inipath, **kwargs):
     mcdict = dict()
     expdict = dict()
     ltdict = dict()
-    num = np.zeros(n)
     
     llh = MultiStackingPriorLLH(nsource=Nsrc+10,
                                 nsource_bounds=(-nbounds, nbounds) if not energy else (0., nbounds),
@@ -166,23 +165,26 @@ def multi_init(n, basepath, inipath, **kwargs):
     for i in xrange(n):
         mcdict[i], expdict[i], ltdict[i] = load_data(basepath, inipath, filenames[i], burn=burn)
         
-    if Nsrc > 0:
-        if add_prior:
-            injector = PriorInjector(src_gamma,
-                                        prior,
-                                        nside_param=nside_param,
-                                        n_uhecr=n_uhecr,
-                                        seed=inj_seed)
-            injector.fill(mcdict, ltdict)
-            sampler = injector.sample(Nsrc, poisson=True)
-            num, sam = sampler.next()
-        else:
-            pass
+    if add_prior:
+	injector = PriorInjector(src_gamma,
+				    prior,
+				    nside_param=nside_param,
+				    n_uhecr=n_uhecr,
+				    seed=inj_seed)
+	injector.fill(mcdict, ltdict)
+	if Nsrc > 0:
+	    sam = injector.sample(Nsrc, poisson=True).next()[1]
     else:
-        pass
+	src_dec = kwargs.pop("src_dec", 0.)
+	src_ra = kwargs.pop("src_ra", np.pi/2.)
+	inj = PointSourceInjector(src_gamma, sinDec_bandwidth=1, seed=inj_seed)
+	inj.fill(src_dec, mcdict, ltdict)
+	if Nsrc > 0:
+	    sam = inj.sample(src_ra, Nsrc, poisson=True).next()[1]
+
             
     for i in xrange(n):    
-        llh_i =  init(arr_exp = np.append(expdict[i], sam[i]) if (Nsrc > 0 and num[i] != 0) else expdict[i],
+        llh_i =  init(arr_exp = np.append(expdict[i], sam[i]) if (Nsrc > 0 and sam[i] != None) else expdict[i],
                         arr_mc = mcdict[i],
                         livetime = ltdict[i],
                         energy=energy,

@@ -130,11 +130,10 @@ def get_paths(hostname):
         crpath = "/home/home2/institut_3b/lschumacher/phd_stuff/phd_code_git/data"
 
     elif "M16" in hostname:
-        print("Not up to date! Probably... go check it first")
-        savepath = "/home/icecube/Desktop/pScratch4/lschumacher/projects/stacking"
-        basepath="/home/icecube/Desktop/pScratch4/lschumacher/projects/data/ps_sample/coenders_pub"
-        inipath="/home/icecube/Desktop/pScratch4/lschumacher/projects/data/ps_sample/coenders_pub"
-        crpath = "/home/icecube/phd_stuff/phd_code_git/data"
+        savepath = "/home/icecube/Documents/test_data"
+        basepath="/home/icecube/Documents/DataPS"
+        inipath="/home/icecube/Documents/DataPS"
+        crpath = "/home/icecube/general_code_repo/data"
         
     elif "icecube.wisc.edu" in hostname:
         basepath = "/data/user/coenders/data/MultiYearPointSource/npz"

@@ -9,6 +9,7 @@ from __future__ import print_function
 
 # Python
 import ConfigParser
+from socket import gethostname
 from os.path import join, exists
 from os import chmod, makedirs
 # SciPy
@@ -136,7 +137,14 @@ def multi_init(n, basepath, inipath, **kwargs):
     inj_seed = kwargs.pop("inj_seed", None)
     
     # Current standard is to load first 4 files
-    filenames = [   "IC40",
+    if "M16" in gethostname():
+	# In case of me working on my laptop ...
+	# load only 79 and 86 which I copied to local disc
+	filenames = ["IC79", 
+                    "IC86"]
+	n = len(filenames)
+    else:
+	filenames = ["IC40",
                     "IC59",
                     "IC79", 
                     "IC86",

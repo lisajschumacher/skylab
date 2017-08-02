@@ -30,10 +30,9 @@ logging.getLogger("skylab.prior_injector.PriorInjector").setLevel(level)
 # convert test statistic to a p-value for a given point
 ndof=1
 #~ ndof=len(llh.params)
-pVal_func = lambda TS, dec: -np.log10(0.5 * (chi2(ndof).sf(TS)
-                                             + chi2(ndof).cdf(-TS)))
-
-
+#~ pVal_func = lambda TS, dec: -np.log10(0.5 * (chi2(ndof).sf(TS)
+                                             #~ + chi2(ndof).cdf(-TS)))
+pVal_func = None
 basepath, inipath, savepath, crpath = utils.get_paths(gethostname())
 
 if __name__=="__main__":

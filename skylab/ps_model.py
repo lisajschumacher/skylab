@@ -763,7 +763,7 @@ class PowerLawLLH(WeightLLH):
             gamma_vals, self._precision)
 
         self._spl_effA = scipy.interpolate.RectBivariateSpline(
-                (self.sinDec_bins[1:] + self.sinDec_bins[:-1]), gamma_vals,
+                (self.sinDec_bins[1:] + self.sinDec_bins[:-1]) / 2., gamma_vals,
                 np.log(hist), kx=2, ky=2, s=0)
 
         return

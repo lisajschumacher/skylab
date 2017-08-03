@@ -49,7 +49,7 @@ if __name__=="__main__":
     add_prior = True
     src_gamma = 2.
     fit_gamma = 2.
-    Nsrc = 15
+    Nsrc = 5
 
     # Other stuff
     if "physik.rwth-aachen.de" in gethostname():
@@ -85,26 +85,25 @@ if __name__=="__main__":
     #~ print(llh)
     # iterator of all-sky scan with follow up scans of most interesting points
     start1 = time.time()
-    #~ for i, (scan, hotspots) in enumerate(llh.all_sky_scan(
-                                            #~ nside=nside,
-                                            #~ follow_up_factor=1,
-                                            #~ pVal=pVal_func,
-                                            #~ hemispheres=hemispheres,
-                                            #~ prior=pg.template,
-                                            #~ fit_gamma=fit_gamma)
-                                            #~ ):
-
-        #~ if i > 0:
-            #~ # break after first follow up
-            #~ break
-    result = llh.do_trials(n_iter=2, 
-			    mu=injector.sample(Nsrc, poisson=True), 
-			    nside=nside,
-			    follow_up_factor=1,
-			    pVal=pVal_func,
-			    hemispheres=hemispheres,
-			    prior=pg.template,
-			    fit_gamma=fit_gamma)
+    for i, (scan, hotspots) in enumerate(llh.all_sky_scan(
+                                            nside=nside,
+                                            follow_up_factor=1,
+                                            pVal=pVal_func,
+                                            hemispheres=hemispheres,
+                                            prior=pg.template,
+                                            fit_gamma=fit_gamma)
+                                            ):
+        if i > 0:
+            # break after first follow up
+            break
+    #~ result = llh.do_trials(n_iter=2, 
+			    #~ mu=injector.sample(Nsrc, poisson=True), 
+			    #~ nside=nside,
+			    #~ follow_up_factor=1,
+			    #~ pVal=pVal_func,
+			    #~ hemispheres=hemispheres,
+			    #~ prior=pg.template,
+			    #~ fit_gamma=fit_gamma)
     stop1 = time.time()
 
     mins, secs = divmod(stop1 - start1, 60)

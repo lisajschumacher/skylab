@@ -184,7 +184,7 @@ def multi_init(n, basepath, inipath, **kwargs):
 
             
     for i in xrange(n):    
-        llh_i =  init(arr_exp = np.append(expdict[i], sam[i]) if (Nsrc > 0 and sam[i] != None) else expdict[i],
+        llh_i =  init(arr_exp = np.append(expdict[i], sam[i]) if (Nsrc > 0) else expdict[i],
                         arr_mc = mcdict[i],
                         livetime = ltdict[i],
                         energy=energy,

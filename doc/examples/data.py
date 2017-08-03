@@ -133,11 +133,18 @@ def multi_init(n, Nexp, NMC, **kwargs):
     fixed_gamma = kwargs.pop("fixed_gamma", False)
     add_prior = kwargs.pop("add_prior", False)
     fit_gamma = kwargs.pop("fit_gamma", 2.)
-    llh = MultiStackingPriorLLH(nsource=25,
-                                nsource_bounds=(-Nexp / 2., Nexp / 2.)
-                                                 if not energy else (0., Nexp / 2.),
-                                seed=np.random.randint(2**32),
-                                **kwargs)
+    if add_prior:
+        llh = MultiStackingPriorLLH(nsource=25,
+                                    nsource_bounds=(-Nexp / 2., Nexp / 2.)
+                                                     if not energy else (0., Nexp / 2.),
+                                    seed=np.random.randint(2**32),
+                                    **kwargs)
+    else:
+        llh = MultiPointSourceLLH(nsource=25,
+                        nsource_bounds=(-Nexp / 2., Nexp / 2.)
+                                     if not energy else (0., Nexp / 2.),
+                        seed=np.random.randint(2**32),
+                        **kwargs)
 
     for i in xrange(n):
         llh_i =  init(Nexp, NMC, energy=energy,

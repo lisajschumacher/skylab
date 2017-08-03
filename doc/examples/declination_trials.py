@@ -43,7 +43,7 @@ if __name__=="__main__":
     dc = dcf.fit(trials["TS"])
     n, bins, _ = plt.hist(trials["TS"], bins=20, normed=True)
     x = np.linspace(bins[0], bins[-1], 100)
-    plt.plot(x, dc.pdf(x)/n_iter)
+    plt.plot(x, dc.pdf(x))
     plt.savefig("figures/TS"+extension)
     plt.semilogy(nonposy="clip")
 

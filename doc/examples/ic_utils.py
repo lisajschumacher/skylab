@@ -23,7 +23,7 @@ tw = 5.31
 logging.basicConfig(level=logging.WARN)
 
 def startup(basepath, inipath, multi=False, **kwargs):
-    n_samples = 4
+    n_samples = 7
     if multi:
         """ Initialize multiple data sets: MC and EXP
         Initialize injector with multiple data sets

@@ -128,8 +128,8 @@ def multi_init(n, basepath, inipath, **kwargs):
     Nsrc = kwargs.pop("Nsrc", 0)
     fit_gamma = kwargs.pop("fit_gamma", 2.)
     src_gamma = kwargs.pop("src_gamma", 2.)
-    fixed_gamma = kwargs.pop("fixed_gamma", True)
-    add_prior = kwargs.pop("add_prior", True)
+    fixed_gamma = kwargs.pop("fixed_gamma", False)
+    add_prior = kwargs.pop("add_prior", False)
     nside_param = kwargs.pop("nside_param", 4)
     n_uhecr = kwargs.pop("n_uhecr", 0)
     prior = kwargs.pop("prior", [])
@@ -157,30 +157,36 @@ def multi_init(n, basepath, inipath, **kwargs):
     expdict = dict()
     ltdict = dict()
     
-    llh = MultiStackingPriorLLH(nsource=Nsrc+10,
+    if add_prior:
+        llh = MultiStackingPriorLLH(nsource=Nsrc+10,
+                                    nsource_bounds=(-nbounds, nbounds) if not energy else (0., nbounds),
+                                    seed=np.random.randint(2**32),
+                                    **kwargs)
+    else:
+        llh = MultiPointSourceLLH(nsource=Nsrc+10,
                                 nsource_bounds=(-nbounds, nbounds) if not energy else (0., nbounds),
                                 seed=np.random.randint(2**32),
-                                **kwargs)
+                                **kwargs)                            
 
     for i in xrange(n):
         mcdict[i], expdict[i], ltdict[i] = load_data(basepath, inipath, filenames[i], burn=burn)
         
     if add_prior:
-	injector = PriorInjector(src_gamma,
-				    prior,
-				    nside_param=nside_param,
-				    n_uhecr=n_uhecr,
-				    seed=inj_seed)
-	injector.fill(mcdict, ltdict)
-	if Nsrc > 0:
-	    sam = injector.sample(Nsrc, poisson=True).next()[1]
+        injector = PriorInjector(src_gamma,
+                        prior,
+                        nside_param=nside_param,
+                        n_uhecr=n_uhecr,
+                        seed=inj_seed)
+        injector.fill(mcdict, ltdict)
+        if Nsrc > 0:
+            sam = injector.sample(Nsrc, poisson=True).next()[1]
     else:
-	src_dec = kwargs.pop("src_dec", 0.)
-	src_ra = kwargs.pop("src_ra", np.pi/2.)
-	inj = PointSourceInjector(src_gamma, sinDec_bandwidth=1, seed=inj_seed)
-	inj.fill(src_dec, mcdict, ltdict)
-	if Nsrc > 0:
-	    sam = inj.sample(src_ra, Nsrc, poisson=True).next()[1]
+        src_dec = kwargs.pop("src_dec", 0.)
+        src_ra = kwargs.pop("src_ra", np.pi/2.)
+        injector = PointSourceInjector(src_gamma, sinDec_bandwidth=1, seed=inj_seed)
+        injector.fill(src_dec, mcdict, ltdict)
+        if Nsrc > 0:
+            sam = injector.sample(src_ra, Nsrc, poisson=True).next()[1]
 
             
     for i in xrange(n):    

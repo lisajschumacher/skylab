@@ -22,7 +22,7 @@ tw = 5.31
 
 logging.basicConfig(level=logging.WARN)
 
-def startup(n=4, NN=1, multi=False, **kwargs):
+def startup(n=4, NN=1, multi=False, ncpu = 4, **kwargs):
     Nexp = 10000 // NN
     NMC = 500000 // NN
     ncpu = 4

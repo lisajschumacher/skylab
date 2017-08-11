@@ -340,7 +340,7 @@ class BaseLLH(object):
             args = [
                 (self, ra[i], dec[i], False, None, seeds[i], None)
                 for i in range(ra.size)
-                ]
+                ] # if i==0 else False
 
             pool = multiprocessing.Pool(self.ncpu)
             results = pool.map(fit_source, args)
@@ -349,9 +349,9 @@ class BaseLLH(object):
             pool.join()
         else:
             results = [
-                self.fit_source(ra[i], dec[i], **seeds[i])
+                self.fit_source(ra[i], dec[i], scramble=False, **seeds[i])
                 for i in range(ra.size)
-                ]
+                ] # if i==0 else False
 
         ts[mask] = [r[0] for r in results]
 

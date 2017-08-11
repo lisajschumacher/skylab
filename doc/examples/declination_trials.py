@@ -49,16 +49,16 @@ if __name__=="__main__":
                                         fixed_gamma=True)
     else:
         llh, mc = utils.startup(multi=True, NN=1, n=2)
-    num=30
+    num=60
     declinations = np.arcsin(np.linspace(-1., 1., num=num+1))
     declinations = (declinations[:-1]+declinations[1:])/2.
     print(llh)
     if not os.path.exists("figures/TS_trials"):
         os.makedirs("figures/TS_trials")
-    n_iter=100
+    n_iter=10000
     start1 = time.time()
     for i,src_dec in enumerate(declinations):
-        if i%5==1: print "Iteration", i, "of", num
+        if i%10==1: print "Iteration", i, "of", num
         trials = llh.do_trials(src_ra=np.pi/2., src_dec=src_dec, mu=None, n_iter=n_iter)
         dcf = FitDeltaChi2()
         dc = dcf.fit(trials["TS"])

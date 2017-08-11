@@ -29,7 +29,8 @@ log_sig = 0.2
 logE_res = 0.1
 
 # fix seed to reproduce same results
-np.random.seed(1+3+3+7)
+seed=1+3+3+7
+np.random.seed(seed)
 
 def load_data(basepath, inipath, filename, shuffle_bool=True, burn=True):
     """ 
@@ -92,6 +93,7 @@ def init(arr_exp, arr_mc, livetime, energy=True, **kwargs):
     fixed_gamma = kwargs.pop("fixed_gamma", False)
     add_prior = kwargs.pop("add_prior", False)
     fit_gamma = kwargs.pop("fit_gamma", 2.)
+    mode = kwargs.pop("mode", "all")
     
     Nexp = len(arr_exp)
     nbounds = 5000.
@@ -109,13 +111,13 @@ def init(arr_exp, arr_mc, livetime, energy=True, **kwargs):
                                sinDec_range=[-1., 1.])
     if add_prior:
         llh = StackingPriorLLH(arr_exp, arr_mc, livetime, llh_model=llh_model,
-                             mode="all", nsource=25, scramble=False,
+                             mode=mode, nsource=25, scramble=False,
                              nsource_bounds=(-nbounds, nbounds) if not energy else (0., nbounds),
                              seed=np.random.randint(2**32),
                              **kwargs)
     else:
         llh = PointSourceLLH(arr_exp, arr_mc, livetime, llh_model=llh_model,
-                             mode="all", nsource=25, scramble=False,
+                             mode=mode, nsource=25, scramble=False,
                              nsource_bounds=(-nbounds, nbounds) if not energy else (0., nbounds),
                              seed=np.random.randint(2**32),
                              **kwargs)
@@ -134,17 +136,16 @@ def multi_init(n, basepath, inipath, **kwargs):
     n_uhecr = kwargs.pop("n_uhecr", 0)
     prior = kwargs.pop("prior", [])
     burn = kwargs.pop("burn", True)
-    inj_seed = kwargs.pop("inj_seed", None)
+    mode = kwargs.pop("mode", "all")
     
     # Current standard is to load first 4 files
     if "M16" in gethostname():
-	# In case of me working on my laptop ...
-	# load only 79 and 86 which I copied to local disc
-	filenames = ["IC79", 
-                    "IC86"]
-	n = len(filenames)
+        # In case of me working on my laptop ...
+        # load only 79 and 86 which I copied to local disc
+        filenames = ["IC79", "IC86"]
+        n = len(filenames)
     else:
-	filenames = ["IC40",
+        filenames = ["IC40",
                     "IC59",
                     "IC79", 
                     "IC86",
@@ -171,22 +172,23 @@ def multi_init(n, basepath, inipath, **kwargs):
     for i in xrange(n):
         mcdict[i], expdict[i], ltdict[i] = load_data(basepath, inipath, filenames[i], burn=burn)
         
-    if add_prior:
-        injector = PriorInjector(src_gamma,
-                        prior,
-                        nside_param=nside_param,
-                        n_uhecr=n_uhecr,
-                        seed=inj_seed)
-        injector.fill(mcdict, ltdict)
-        if Nsrc > 0:
+    if Nsrc > 0:
+        if add_prior:
+            injector = PriorInjector(src_gamma,
+                                        prior,
+                                        nside_param=nside_param,
+                                        n_uhecr=n_uhecr,
+                                        seed=seed)
+            injector.fill(mcdict, ltdict)
             sam = injector.sample(Nsrc, poisson=True).next()[1]
-    else:
-        src_dec = kwargs.pop("src_dec", 0.)
-        src_ra = kwargs.pop("src_ra", np.pi/2.)
-        injector = PointSourceInjector(src_gamma, sinDec_bandwidth=1, seed=inj_seed)
-        injector.fill(src_dec, mcdict, ltdict)
-        if Nsrc > 0:
+        else:
+            src_dec = kwargs.pop("src_dec", 0.)
+            src_ra = kwargs.pop("src_ra", np.pi/2.)
+            injector = PointSourceInjector(src_gamma, sinDec_bandwidth=1, seed=seed)
+            injector.fill(src_dec, mcdict, ltdict)
             sam = injector.sample(src_ra, Nsrc, poisson=True).next()[1]
+    else:
+        injector = None
 
             
     for i in xrange(n):    
@@ -197,8 +199,54 @@ def multi_init(n, basepath, inipath, **kwargs):
                         fixed_gamma=fixed_gamma,
                         fit_gamma=fit_gamma,
                         add_prior=add_prior,
+                        mode=mode,
                         **kwargs
                         )
         llh.add_sample(str(i), llh_i)
+
+    return llh, injector
+    
+def single_init(filename, basepath, inipath, **kwargs):
+    
+    energy = kwargs.pop("energy", True)
+    Nsrc = kwargs.pop("Nsrc", 0)
+    fit_gamma = kwargs.pop("fit_gamma", 2.)
+    src_gamma = kwargs.pop("src_gamma", 2.)
+    fixed_gamma = kwargs.pop("fixed_gamma", False)
+    add_prior = kwargs.pop("add_prior", False)
+    nside_param = kwargs.pop("nside_param", 4)
+    n_uhecr = kwargs.pop("n_uhecr", 0)
+    prior = kwargs.pop("prior", [])
+    burn = kwargs.pop("burn", True)
+
+    mc, exp, lt = load_data(basepath, inipath, filename, burn=burn)
+
+    if Nsrc > 0:
+        if add_prior:
+            injector = PriorInjector(src_gamma,
+                            prior,
+                            nside_param=nside_param,
+                            n_uhecr=n_uhecr,
+                            seed=seed)
+            injector.fill(mc, lt)
+            sam = injector.sample(Nsrc, poisson=True).next()[1]
+        else:
+            src_dec = kwargs.pop("src_dec", 0.)
+            src_ra = kwargs.pop("src_ra", np.pi/2.)
+            injector = PointSourceInjector(src_gamma, sinDec_bandwidth=1, seed=seed)
+            injector.fill(src_dec, mc, lt)
+            sam = injector.sample(src_ra, Nsrc, poisson=True).next()[1]
+    else:
+        injector = None
+
+    llh =  init(arr_exp = np.append(exp, sam) if (Nsrc > 0) else exp,
+                    arr_mc = mc,
+                    livetime = lt,
+                    energy=energy,
+                    fixed_gamma=fixed_gamma,
+                    fit_gamma=fit_gamma,
+                    add_prior=add_prior,
+                    **kwargs
+                    )
 
     return llh, injector

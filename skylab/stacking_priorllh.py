@@ -222,10 +222,7 @@ class StackingPriorLLH(psLLH.PointSourceLLH):
 			ts, xmin = self._scan(ra[mask], dec[mask], ts, xmin, mask)
 
 			time = datetime.datetime.now() - time
-			logger.info("Finished after {0}.".format(time))
-			#~ result = np.array(zip(ra, dec, theta, ts, np.zeros((len(prior),ts)), np.zeros_like(ts)),
-							  #~ [(f, np.float) for f in "ra", "dec", "theta", "preTS", "postTS", "allPrior"]
-							 #~ )
+			logger.info("Finished after {0}.".format(time)) 
 			result = np.array(zip(ra, dec, theta, ts, np.zeros_like(ts)),
 							  [(f, np.float) for f in "ra", "dec", "theta", "preTS", "allPrior"]
 							 )
@@ -249,7 +246,7 @@ class StackingPriorLLH(psLLH.PointSourceLLH):
 										result, names=names,
 										data=[p_ts, pvalue, current_prior],
 										dtypes=[np.float for n in names], usemask=False),
-								nside, hemispheres, drange, pVal, logger)
+								    nside, hemispheres, drange, pVal)
 								)
 				result["allPrior"] += np.exp(current_prior)
 				self.postTS[i] += np.where(p_ts>0.,p_ts,np.zeros_like(p_ts))
@@ -263,10 +260,12 @@ class StackingPriorLLH(psLLH.PointSourceLLH):
 			nside *= 2**follow_up_factor
 			niterations += 1
 
-	def _hotspot(self, scan, nside, hemispheres, drange, pVal, logger):
+
+	def _hotspot(self, scan, nside, hemispheres, drange, pVal):
 		r"""Gather information about hottest spots in each hemisphere.
 
 		"""
+		logger = logging.getLogger(self._logname + ".hotspot")
 		result = {}
 		for key, dbound in hemispheres.iteritems():
 			mask = (
@@ -299,13 +298,14 @@ class StackingPriorLLH(psLLH.PointSourceLLH):
 			result[key] = dict(grid=dict(
 				ra=hotspot["ra"],
 				dec=hotspot["dec"],
+				ns=hotspot["nsources"],
 				nside=nside,
 				pix=hp.ang2pix(nside, np.pi/2 - hotspot["dec"], hotspot["ra"]),
 				TS=hotspot["TS"],
 				pVal=hotspot["pVal"]))
 
 			result[key]["grid"].update(seed)
-
+		
 			fmin, xmin = self.fit_source_loc(
 				hotspot["ra"], hotspot["dec"], size=hp.nside2resol(nside),
 				seed=seed, prior=scan["prior"])
@@ -413,7 +413,7 @@ class StackingPriorLLH(psLLH.PointSourceLLH):
 
 		return fmin, pbest
 
-	'''def do_trials(self, n_iter=2, mu=None, **kwargs):
+	def do_trials(self, prior, n_iter=2, mu=None, **kwargs):
 		r"""Create trials of scrambled event maps to estimate the test
 		statistic distribution.
 
@@ -433,69 +433,64 @@ class StackingPriorLLH(psLLH.PointSourceLLH):
 		Returns
 		-------
 		ndarray
-			Structured array containing number of injected events
-			``n_inj``, test statistic ``TS`` and best-fit values for
-			`params` per trial
+			Structured array of information about hotspots
 
 		"""
-		raise NotImplementedError("In Work!")
+		logger = logging.getLogger(self._logname)
 		""" To DO:
-		- args for all sky scan
 		- injector
-		- multiprocessing?
-		- result/return
 		"""
+		
 		if mu is None:
-			mu = itertools.repeat((0, None))
-
+			mu = itertools.repeat((0, None))		
 		inject = [mu.next() for i in range(n_iter)]
+		
 
-		# Minimize negative log-likelihood function for every trial. In case of
-		# multi-processing, each process needs its own sampling seed.
-		if (self.ncpu > 1 and n_iter > self.ncpu and
-				self.ncpu <= multiprocessing.cpu_count()):
-			#~ args = [(
-				#~ self, src_ra, src_dec, True, inject[i][1], kwargs,
-				#~ self.random.randint(2**32)) for i in range(n_iter)
-				#~ ]
+		hemispheres = kwargs.pop("hemispheres",
+		                            dict(
+									South=(-np.pi/2., -np.deg2rad(5.)),
+									North=(-np.deg2rad(5.), np.pi/2.)))
+		h_keys = hemispheres.keys()
+		res_keys = ["ra", "dec"] + self.params
+		#~ dtype = [("n_inj", np.int), ("TS", np.float)]
+		#~ dtype.extend((p, np.float) for p in self.params)
 
-			#~ pool = multiprocessing.Pool(self.ncpu)
-			#~ results = pool.map(all_sky_scan, args)
+		#~ trials = np.empty((n_iter, ), dtype=dtype)
+		best_hotspots = np.zeros((n_iter, len(prior)),
+		                          dtype=[(p, np.float) for p in h_keys] 
+		                          +[(p, np.float) for p in res_keys]
+		                          +[("best", np.float)]
+		                          +[("n_inj", np.float)])
 
-			#~ pool.close()
-			#~ pool.join()
-			raise NotImplementedError("no implementation for ncpu>1")
-		else:
-			""" all sky scan: parameters
-				nside=nside,
-				follow_up_factor=1,
-				pVal=pVal_func,
-				hemispheres=hemispheres,
-				prior=pg.template,
-				fit_gamma=fit_gamma"""
-			#~ results = [
-				#~ self.all_sky_scan(src_ra, src_dec, True, inject[i][1], **kwargs)
-				#~ for i in range(n_iter)
-				#~ ]
-			for i, (scan, hotspots) in enumerate(llh.all_sky_scan(kwargs)):
+		# all_sky_scan for every trial
+		for i, (_, hotspots) in enumerate(self.all_sky_scan(prior,
+                                              hemispheres=hemispheres,
+                                              **kwargs)):
+			best_hotspots["n_inj"][i] = inject[i][0]
+			for h_i,hspots in enumerate(hotspots):
+				for hk in h_keys:
+					best_hotspots[hk][i][h_i] = hspots[hk]["best"]["TS"]
+				if len(h_keys)==2 and (best_hotspots[h_keys[1]][i][h_i] >= best_hotspots[h_keys[0]][i][h_i]):
+					best_hotspots["best"][i][h_i] = best_hotspots[h_keys[1]][i][h_i]
+					for p in res_keys:
+						best_hotspots[p][i][h_i] = hspots[h_keys[1]]["best"][p]
+				else:
+					best_hotspots["best"][i][h_i] = best_hotspots[h_keys[0]][i][h_i]
+					for p in res_keys:
+						best_hotspots[p][i][h_i] = hspots[h_keys[0]]["best"][p]
 
-				if i > 0:
-					# break after first follow-up scan 
-					break
+			#~ trials["n_inj"][i] = inject[i][0]
+			#~ trials["TS"][i] = np.sum(best_hotspots["best"][i])
+			#~ trials["nsources"][i] = np.sum(best_hotspots["nsources"][i])
+			#~ if "gamma" in self.params:
+				#~ trials["gamma"][i] = np.mean(best_hotspots["gamma"][i])
 
-		dtype = [("n_inj", np.int), ("TS", np.float)]
-		dtype.extend((p, np.float) for p in self.params)
+			# scramble experimental events after scan
+			self.exp["ra"] = self.random.uniform(0., 2.*np.pi, size=self.exp.size)
+			
+			if i==n_iter-1: break # break after enough trials
 
-		trials = np.empty((n_iter, ), dtype=dtype)
-
-		for i in range(n_iter):
-			trials["n_inj"][i] = inject[i][0]
-			trials["TS"][i] = results[i][0]
-
-			for key in results[i][1]:
-				trials[key][i] = results[i][1][key]
-
-		return trials '''
+		return best_hotspots #trials, 
 
 class MultiStackingPriorLLH(psLLH.MultiPointSourceLLH):
 	r"""
@@ -883,3 +878,85 @@ class MultiStackingPriorLLH(psLLH.MultiPointSourceLLH):
 		self._src_dec = np.inf
 
 		return fmin, pbest
+		
+	def do_trials(self, prior, n_iter=2, mu=None, **kwargs):
+		r"""Create trials of scrambled event maps to estimate the test
+		statistic distribution.
+
+		Parameters
+		----------
+		src_ra : float
+			Right ascension of source position
+		src_dec : float
+			Declination of source position
+		n_iter : int, optional
+			Number of trials to create
+		mu : Injector, optional
+			Inject additional events into the scrambled map.
+		\*\*kwargs
+			Parameters passed to `fit_source`
+
+		Returns
+		-------
+		ndarray
+			Structured array of information about hotspots
+
+		"""
+		logger = logging.getLogger(self._logname)
+		""" To DO:
+		- injector
+		"""
+		
+		if mu is None:
+			mu = itertools.repeat((0, None))		
+		inject = [mu.next() for i in range(n_iter)]
+		
+
+		hemispheres = kwargs.pop("hemispheres",
+		                            dict(
+									South=(-np.pi/2., -np.deg2rad(5.)),
+									North=(-np.deg2rad(5.), np.pi/2.)))
+		h_keys = hemispheres.keys()
+		res_keys = ["ra", "dec"] + self.params
+		#~ dtype = [("n_inj", np.int), ("TS", np.float)]
+		#~ dtype.extend((p, np.float) for p in self.params)
+
+		#~ trials = np.empty((n_iter, ), dtype=dtype)
+		best_hotspots = np.zeros((n_iter, len(prior)),
+		                          dtype=[(p, np.float) for p in h_keys] 
+		                          +[(p, np.float) for p in res_keys]
+		                          +[("best", np.float)]
+		                          +[("n_inj", np.float)])
+
+		# all_sky_scan for every trial
+		for i, (_, hotspots) in enumerate(self.all_sky_scan(prior,
+                                              hemispheres=hemispheres,
+                                              **kwargs)):
+			best_hotspots["n_inj"][i] = inject[i][0]
+			for h_i,hspots in enumerate(hotspots):
+				for hk in h_keys:
+					best_hotspots[hk][i][h_i] = hspots[hk]["best"]["TS"]
+				if len(h_keys)==2 and (best_hotspots[h_keys[1]][i][h_i] >= best_hotspots[h_keys[0]][i][h_i]):
+					best_hotspots["best"][i][h_i] = best_hotspots[h_keys[1]][i][h_i]
+					for p in res_keys:
+						best_hotspots[p][i][h_i] = hspots[h_keys[1]]["best"][p]
+				else:
+					best_hotspots["best"][i][h_i] = best_hotspots[h_keys[0]][i][h_i]
+					for p in res_keys:
+						best_hotspots[p][i][h_i] = hspots[h_keys[0]]["best"][p]
+
+			#~ trials["n_inj"][i] = inject[i][0]
+			#~ trials["TS"][i] = np.sum(best_hotspots["best"][i])
+			#~ trials["nsources"][i] = np.sum(best_hotspots["nsources"][i])
+			#~ if "gamma" in self.params:
+				#~ trials["gamma"][i] = np.mean(best_hotspots["gamma"][i])
+
+			# scramble experimental events after scan
+			for enum in self._samples:
+				self._samples[enum].exp["ra"] = self.random.uniform(0.,
+				                                2.*np.pi,
+				                                size=self._samples[enum].exp.size)
+			
+			if i==n_iter-1: break # break after enough trials
+
+		return best_hotspots

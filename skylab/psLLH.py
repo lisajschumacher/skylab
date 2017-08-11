@@ -82,7 +82,7 @@ class PointSourceLLH(basellh.BaseLLH):
     _aval = 1e-3
 
     def __init__(self, exp, mc, livetime, llh_model, scramble=True, mode="box",
-                 delta_ang=np.deg2rad(10.), thresh_S=0., **kwargs):
+                 delta_ang=np.deg2rad(15.), thresh_S=0., **kwargs):
         super(PointSourceLLH, self).__init__(**kwargs)
 
         # Add sine declination to experimental data if not available.
@@ -217,6 +217,7 @@ class PointSourceLLH(basellh.BaseLLH):
         """
         # We will chose new events, so it is time to clean the likelihood
         # model's cache.
+        logger = logging.getLogger(self._logname)
         self.llh_model.reset()
 
         # Select either all events or the ones within the declination band.
@@ -238,7 +239,7 @@ class PointSourceLLH(basellh.BaseLLH):
 
         if scramble:
             events["ra"] = self.random.uniform(0., 2.*np.pi, size=events.size)
-
+ 
         if self.mode == "box":
             # Select events inside right ascension box: the solid angle is a
             # function of declination, i.e., for a fixed solid angle, the right

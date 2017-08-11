@@ -45,39 +45,53 @@ if __name__=="__main__":
     
     backend = "svg"
     extension = "_testing_hemispheres.png"
+    plt = utils.plotting(backend=backend)
     hemispheres = dict(North = np.radians([-5., 90.]), South = np.radians([-90., -5.]))
     hcolor = dict(North = "cyan", South = "red")
 
-    plt = utils.plotting(backend=backend)
-
-    nside_param = 5
+    nside_param = 4
     nside = 2**nside_param
     
-    multi = True # work with multiple different samples
-    # This sets whether or not we choose the template fit with fixed gamma
+    multi = False # work with single or multiple different samples
+    # LLH and Fitting parameters
     fixed_gamma = True
     add_prior = True
+    src_gamma = 2.
+    fit_gamma = 2.
+    Nsrc = 0
+
+    # Other stuff
+    if "physik.rwth-aachen.de" in gethostname():
+        ncpu = 4
+    else:
+        ncpu = 1
+    burn = True
+    inj_seed = 666
+    save_res = True
+    identifier = "test_"
+    mark_hotspots = False
 
     # "/home/home2/institut_3b/lschumacher/phd_stuff/phd_code_git/data"
     # "/home/lschumacher/git_repos/general_code_repo/data"
-    pg = UhecrPriorGenerator(nside_param, np.radians(6), 90, crpath)
+    pg = UhecrPriorGenerator(nside_param, np.radians(6), 100, crpath)
     tm = np.exp(pg.template)
     tm = tm/tm.sum(axis=1)[np.newaxis].T
-    src_gamma = 2.
-    fit_gamma = 2.
+
 
     llh, injector = utils.startup(basepath,
-                            inipath,
-                            Nsrc=15,
-                            fixed_gamma=fixed_gamma,
-                            add_prior=add_prior,
-                            src_gamma=src_gamma,
-                            multi=multi,
-                            n_uhecr=pg.n_uhecr,
-                            prior=tm,
-                            nside_param=nside_param,
-                            burn=False
-                            )
+                                    inipath,
+                                    Nsrc=Nsrc,
+                                    fixed_gamma=fixed_gamma,
+                                    add_prior=add_prior,
+                                    src_gamma=src_gamma,
+                                    multi=multi,
+                                    n_uhecr=pg.n_uhecr,
+                                    prior=tm,
+                                    nside_param=nside_param,
+                                    burn=burn,
+                                    inj_seed=inj_seed,
+                                    ncpu=ncpu
+                                    )
     #~ print(llh)
     # iterator of all-sky scan with follow up scans of most interesting points
     for i, (scan, hotspots) in enumerate(llh.all_sky_scan(
@@ -91,33 +105,21 @@ if __name__=="__main__":
         if i > 0:
             # break after first follow up
             break
-    for k in scan.dtype.names:
-        scan[k] = hp.sphtfunc.smoothing(scan[k], sigma=np.radians(0.5))
+    #~ for k in scan.dtype.names:
+        #~ scan[k] = hp.sphtfunc.smoothing(scan[k], sigma=np.radians(0.5))
 
     eps = 1.
     # Custom colormap using cubehelix from seaborn, see utils
     cmap = utils.cmap
 
-    '''
-    if isinstance(llh, MultiPointSourceLLH):
-        for llh in llh._sams.itervalues():
-            ax.scatter(np.pi - llh.exp["ra"], np.arcsin(llh.exp["sinDec"]), 1,
-                       marker="x",
-                       #color=plt.gca()._get_lines.color_cycle.next(),
-                       alpha=0.2)#, rasterized=True)
-    else:
-        ax.scatter(np.pi - llh.exp["ra"], np.arcsin(llh.exp["sinDec"]), 10,
-                   marker="o",
-                   #color=plt.gca()._get_lines.color_cycle.next(),
-                   alpha=0.05)#, rasterized=True)
-    #'''
     # Looking at the hotspots and separating them into North and South
     hk = hemispheres.keys()
     print "Hemisphere keys:", hk
     best_hotspots = np.zeros(pg.n_uhecr, dtype=[(p, np.float) for p in hk]
                                                 +[("best", np.float)]
                                                 +[("dec", np.float)]
-                                                +[("ra", np.float)])
+                                                +[("ra", np.float)]
+                                                +[("nsources", np.float)])
 
     for i,hi in enumerate(hotspots):
         for h in hk:
@@ -126,10 +128,12 @@ if __name__=="__main__":
             best_hotspots["best"][i] = best_hotspots[hk[0]][i]
             best_hotspots["ra"][i] = hi[hk[0]]["best"]["ra"]
             best_hotspots["dec"][i] = hi[hk[0]]["best"]["dec"]
+            best_hotspots["nsources"][i] = hi[hk[0]]["best"]["nsources"]
         else:
             best_hotspots["best"][i] = best_hotspots[hk[1]][i]
             best_hotspots["ra"][i] = hi[hk[1]]["best"]["ra"]
             best_hotspots["dec"][i] = hi[hk[1]]["best"]["dec"]
+            best_hotspots["nsources"][i] = hi[hk[1]]["best"]["nsources"]
         
     print "Hotspots:"
     print best_hotspots.dtype.names
@@ -153,18 +157,19 @@ if __name__=="__main__":
                                vmin=vmin, vmax=vmax,
                                colorbar=dict(title=label[key]),
                                rasterized=True)
-        if True:
+        if mark_hotspots:
             for bhi in best_hotspots:
                 ax.scatter(np.pi - bhi["ra"], bhi["dec"], 20,
                        marker="o",
                        color="cyan",
                        alpha=0.25,
                        label="Hotspot fit")
-            ax.scatter(np.pi - injector._src_ra, injector._src_dec, 20,
-                       marker="d",
-                       color="orange",
-                       alpha=0.25,
-                       label="Injected")
+            if Nsrc>0:
+                ax.scatter(np.pi - injector._src_ra, injector._src_dec, 20,
+                           marker="d",
+                           color="orange",
+                           alpha=0.25,
+                           label="Injected")
         fig.savefig("figures/skymap_" + key + extension, dpi=256)
         plt.close("all")
     # Now we look at the single results:
@@ -181,18 +186,19 @@ if __name__=="__main__":
                                    vmin=vmin, vmax=vmax,
                                    colorbar=dict(title=label[key]),
                                    rasterized=True)
-        if True:
+        if mark_hotspots:
             for bhi in best_hotspots:
                 ax.scatter(np.pi - bhi["ra"], bhi["dec"], 20,
                        marker="o",
                        color="cyan",
                        alpha=0.25,
                        label="Hotspot fit")
-            ax.scatter(np.pi - injector._src_ra, injector._src_dec, 20,
-                       marker="d",
-                       color="orange",
-                       alpha=0.25,
-                       label="Injected")
+            if Nsrc>0:
+                ax.scatter(np.pi - injector._src_ra, injector._src_dec, 20,
+                           marker="d",
+                           color="orange",
+                           alpha=0.25,
+                           label="Injected")
         fig.savefig("figures/skymap_postTS_" + str(c) + extension, dpi=256)
         plt.close("all")
         c+=1

@@ -80,7 +80,6 @@ class PriorInjector(ps_injector.PointSourceInjector):
         self._n_uhecr = n_uhecr
         self._nside = 2**np.int(nside_param)
         super(PriorInjector, self).__init__(gamma, **kwargs)
-        #self.sinDec_bandwidth = 10
         self.template = template
         
         
@@ -105,9 +104,6 @@ class PriorInjector(ps_injector.PointSourceInjector):
         # length should fit
         assert(np.shape(templ)[-1] == hp.nside2npix(self._nside))
         assert(len(templ) == self._n_uhecr)
-        # and the values should be between 0 and 1
-        #~ assert((min(templ)>=0).all())
-        #~ assert((max(templ)<=1).all())
         self._template = templ
         
     def _setup(self):
@@ -239,8 +235,8 @@ class PriorInjector(ps_injector.PointSourceInjector):
 
         Returns
         --------
-        num : int
-            Total number of events
+        num : array
+            Number of events per source
         sam_ev : iterator
             Sampled events for each loop iteration; either as simple
             array or as dictionary for each sample

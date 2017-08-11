@@ -63,7 +63,7 @@ if __name__=="__main__":
 
     # "/home/home2/institut_3b/lschumacher/phd_stuff/phd_code_git/data"
     # "/home/lschumacher/git_repos/general_code_repo/data"
-    pg = UhecrPriorGenerator(nside_param, np.radians(6), 100, crpath)
+    pg = UhecrPriorGenerator(nside_param, np.radians(6), 120, crpath)
     tm = np.exp(pg.template)
     tm = tm/tm.sum(axis=1)[np.newaxis].T
 
@@ -84,56 +84,22 @@ if __name__=="__main__":
                                     )
     #~ print(llh)
     # iterator of all-sky scan with follow up scans of most interesting points
-    start1 = time.time()
-    for i, (scan, hotspots) in enumerate(llh.all_sky_scan(
-                                            nside=nside,
-                                            follow_up_factor=1,
-                                            pVal=pVal_func,
-                                            hemispheres=hemispheres,
-                                            prior=pg.template,
-                                            fit_gamma=fit_gamma)
-                                            ):
-        if i > 0:
-            # break after first follow up
-            break
-    #~ result = llh.do_trials(n_iter=2, 
-			    #~ mu=injector.sample(Nsrc, poisson=True), 
-			    #~ nside=nside,
-			    #~ follow_up_factor=1,
-			    #~ pVal=pVal_func,
-			    #~ hemispheres=hemispheres,
-			    #~ prior=pg.template,
-			    #~ fit_gamma=fit_gamma)
+    start1 = time.time() 
+    trials, best_hotspots = llh.do_trials(n_iter=2, 
+                            mu=injector.sample(Nsrc, poisson=True), 
+                            nside=nside,
+                            follow_up_factor=1,
+                            pVal=pVal_func,
+                            hemispheres=hemispheres,
+                            prior=pg.template,
+                            fit_gamma=fit_gamma)
     stop1 = time.time()
 
     mins, secs = divmod(stop1 - start1, 60)
-    print("Full scan finished after {0:2d}' {1:4.2f}''".format(int(mins), int(secs)))
-    # Looking at the hotspots and separating them into North and South
-    # There can only be one true source position, so we choose the larges TS
-    # Trials will account for that, hopefully
-    hk = hemispheres.keys()
-    print "Hemisphere keys:", hk
-    best_hotspots = np.zeros(pg.n_uhecr, dtype=[(p, np.float) for p in hk]
-                                                +[("best", np.float)]
-                                                +[("dec", np.float)]
-                                                +[("ra", np.float)])
-
-    for i,hi in enumerate(hotspots):
-        for h in hk:
-            best_hotspots[h][i] = hi[h]["best"]["TS"]
-        if best_hotspots[hk[0]][i] >= best_hotspots[hk[1]][i]:
-            best_hotspots["best"][i] = best_hotspots[hk[0]][i]
-            best_hotspots["ra"][i] = hi[hk[0]]["best"]["ra"]
-            best_hotspots["dec"][i] = hi[hk[0]]["best"]["dec"]
-        else:
-            best_hotspots["best"][i] = best_hotspots[hk[1]][i]
-            best_hotspots["ra"][i] = hi[hk[1]]["best"]["ra"]
-            best_hotspots["dec"][i] = hi[hk[1]]["best"]["dec"]
-        
-    print "Best:"
-    print best_hotspots
+    print("Full scan finished after {0:2d}' {1:4.2f}''".format(int(mins), int(secs))) 
 
     if save_res:
         import cPickle as pickle
-        pickle.dump(hotspots, open(os.path.join(savepath, identifier+"hotspots.pickle"), "wb"))
+        pickle.dump(best_hotspots, open(os.path.join(savepath, identifier+"hotspots.pickle"), "wb"))
+        pickle.dump(trials, open(os.path.join(savepath, identifier+"trials.pickle"), "wb"))
     

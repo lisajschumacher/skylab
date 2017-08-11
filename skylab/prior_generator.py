@@ -98,7 +98,7 @@ class UhecrPriorGenerator(PriorGenerator):
         n_uhecr : int > 0
             Number of UHECR events selected for generating the template
     """
-    def __init__(self, nside_param, deflection, energy_threshold, data_path):
+    def __init__(self, nside_param):
         r""" Initialize and calculate the Prior templates
         
         Parameters:
@@ -109,42 +109,13 @@ class UhecrPriorGenerator(PriorGenerator):
             Magnetic deflection parameter in radian
             
             energy_threshold : float
-            Energy threshold for UHECR selection, should be between min and max of expected values
+            Energy threshold for UHECR selection, should be between
+            min and max of expected values
             
             data_path : string
             Path name where to find UHECR data
         """
         super(UhecrPriorGenerator, self).__init__(nside_param)
-        self._template = self.calc_template(
-                            self._get_UHECR_positions(deflection,
-                                    energy_threshold,
-                                    data_path)
-                            )        
-        
-    #~ @property
-    #~ def template_s(self):
-        #~ r"""
-        #~ Prior template of all selected UHECR events
-        #~ Translated to HealPy map scheme with certain nside parameter
-        #~ Sum of all entries normed to one
-        #~ """
-        #~ return self._template_s
-    #~ 
-    #~ @template_s.setter
-    #~ def template_s(self, templ):
-        #~ r"""
-        #~ Prior template of all selected UHECR events
-        #~ Translated to HealPy map scheme with certain nside parameter
-        #~ Sum of all entries normed to one
-        #~ 
-        #~ Make sure that basic prior template requirements are fulfilled
-        #~ """
-        #~ # length should fit
-        #~ assert(len(templ) == len(self._template_s))
-        #~ # and the values should be between 0 and 1
-        #~ assert(min(templ)>=0)
-        #~ assert(max(templ)<=1)
-        #~ self._template_s = templ
 
     @property
     def template(self):
@@ -188,7 +159,7 @@ class UhecrPriorGenerator(PriorGenerator):
             self._n_uhecr = n
 
     
-    def calc_template(self, params):
+    def calc_template(self, deflection, t_params):
         r""" Calculate the Prior template from ra, dec and sigma parameters.
         The single templates are constructed as 2D-symmetric Gaussians 
         on position (ra, dec) with width of sigma. All contributions are
@@ -198,26 +169,30 @@ class UhecrPriorGenerator(PriorGenerator):
         Using 2D-Vectors on a sphere
         
         Parameters:
-            params: combined array of ra, dec and sigma
+            deflection : float
+                        parameter for source extent, called "D" in paper
+                        usually 3 or 6 degree (but plz give in radian k?)
+            t_params: arrays of ra, dec, energy and reco error
                 Can be single float values each or 1D-arrays themselves
                 Should have the same length
-            multi: bool
-                whether or not this metho generates one combined prior or
-                multiple single priors
                 
         returns:
-            Prior Template in HealPy map format, normalized to 1
+            Prior Template in HealPy map format
         """
-        t_ra, t_dec, t_sigma = params
-        
+        t_ra, t_dec, t_energy, t_reco = t_params
         t_ra = np.atleast_1d(t_ra)
         t_dec = np.atleast_1d(t_dec)
-        t_sigma = np.atleast_1d(t_sigma)
+        t_energy = np.atleast_1d(t_energy)
+        t_reco = np.atleast_1d(t_reco)
         assert(len(t_ra) == len(t_dec))
-        assert(len(t_ra) == len(t_sigma))
+        assert(len(t_ra) == len(t_energy))
+        assert(len(t_ra) == len(t_reco))
+
+        # set source extent by formula sigma_CR = D*100EeV/E_CR
+        # plus reco error
+        t_sigma = np.sqrt((deflection*100./t_energy)**2 + t_reco**2)
 
         _template = np.empty((len(t_ra), hp.nside2npix(self.nside)), dtype=np.float)
-        #~ _template_s = super(UhecrPriorGenerator, self).template_s
             
         for i in range(len(t_ra)):
             mean_vec = UnitSphericalRepresentation(Angle(t_ra[i], u.radian), 
@@ -226,21 +201,12 @@ class UhecrPriorGenerator(PriorGenerator):
                                                   Angle(self.dec, u.radian))
             
             _template[i] = -1.*np.power((map_vec-mean_vec).norm(), 2) / t_sigma[i]**2 / 2.
-            #~ _temp = np.exp(_template_m[i])
-            #~ _template_s += _temp/sum(_temp)
-
-        #~ _template_s /= np.sum(_template_s)
-            
-        #~ return _template_s, _template_m
         return _template
 
-    def _get_UHECR_positions(self, deflection, energy_threshold, data_path,
+    def _get_UHECR_positions(self, energy_threshold, data_path,
                              files = ["AugerUHECR2014.txt", "TelArrayUHECR.txt"]):
         """ Read the UHECR text file(s)
         Parameters:
-            deflection : float
-                        parameter for source extent, called "D" in paper
-                        usually 3 or 6 degree (but plz give in radian k?)
             energy_threshold : float
                          threshold value for energy given in EeV
 
@@ -256,7 +222,7 @@ class UhecrPriorGenerator(PriorGenerator):
                     and have names ["dec", "RA", "E"]
 
         returns : three arrays
-        ra, dec, sigma (i.e. assumed magnetic deflection)
+        ra, dec, energy, sigma_reco
         """
 
         # This could be done probably better with standard file reading ...
@@ -289,13 +255,13 @@ class UhecrPriorGenerator(PriorGenerator):
 
         dec = np.array(dec_temp)[e_mask]
         ra = np.array(ra_temp)[e_mask]
-
-        # set source extent by formula sigma_CR = D*100EeV/E_CR
-        mag_deflection = deflection*100./np.array(e_temp)[e_mask]
+        energy = np.array(e_temp)[e_mask]
         sigma_reco = np.array(sigma_reco)[e_mask]
-        sigma = np.sqrt(mag_deflection**2 + sigma_reco**2)
+
+        # set attributes which we want to have access to
         self.n_uhecr = len(ra)
-        return ra, dec, sigma
+        self.energy = np.array(e_temp)[e_mask]
+        return ra, dec, energy, sigma_reco
 
 # Testing
 if __name__=="__main__":
@@ -303,11 +269,15 @@ if __name__=="__main__":
     from seaborn import cubehelix_palette
     from test_utils import cmap
     path = "/home/home2/institut_3b/lschumacher/phd_stuff/skylab_git/"
-    t = UhecrPriorGenerator(5, np.radians(6), 0, data_path="/home/home2/institut_3b/lschumacher/phd_stuff/phd_code_git/data")
+    t = UhecrPriorGenerator(5)
+    template = t.calc_template(np.radians(6),
+                    t._get_UHECR_positions(100,
+                    data_path="/home/home2/institut_3b/lschumacher/phd_stuff/phd_code_git/data"))
     print("Selected {} CRs".format(t.n_uhecr))
+    print("Above energies of {} EeV".format(min(t.energy)))
     
     fig = plt.figure(-1)
-    tm = np.exp(t.template)
+    tm = np.exp(template)
     tm = tm/tm.sum(axis=1)[np.newaxis].T
     tm = tm.sum(axis=0)
     hp.mollview(tm, fig=-1, cmap=cmap, rot=[180,0,0])
@@ -315,10 +285,19 @@ if __name__=="__main__":
     hp.projtext(np.pi/2, -0.01, r"$360^\circ$", color="w")
     hp.projtext(np.pi/2, np.pi, r"$180^\circ$", color="w")
     plt.savefig(path+"figures/full_test_template.png")
+    fig = plt.figure(7)
+    tm = np.exp(template)
+    tm = tm.sum(axis=0)
+    hp.mollview(np.log10(tm), fig=7, cmap=cmap, rot=[180,0,0], min=-20)
+    hp.projtext(np.pi/2, 0.01, r"$0^\circ$", color="w", ha="right")
+    hp.projtext(np.pi/2, -0.01, r"$360^\circ$", color="w")
+    hp.projtext(np.pi/2, np.pi, r"$180^\circ$", color="w")
+    plt.savefig(path+"figures/full_log_test_template.png")
     
-    for i,tm in enumerate(t.template[:3]):
+   
+    for i,tm in enumerate(template[:3]):
         fig = plt.figure(i)
-        hp.mollview(tm, fig=i, cmap=cmap, rot=[180,0,0])
+        hp.mollview(tm, fig=i, cmap=cmap, rot=[180,0,0], min=-20)
         hp.projtext(np.pi/2, 0.01, r"$0^\circ$", color="w", ha="right")
         hp.projtext(np.pi/2, -0.01, r"$360^\circ$", color="w")
         hp.projtext(np.pi/2, np.pi, r"$180^\circ$", color="w")

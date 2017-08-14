@@ -1,3 +1,5 @@
+#!/bin/env python
+
 # -*-coding:utf8-*-
 
 import os
@@ -54,7 +56,7 @@ parser.add_argument("--niter",
                     help="Number of trial iterations"
                    )
 
-parser.add_argument("--nparam", 
+parser.add_argument("--nsideparam", 
                     dest="nside_param", 
                     type=int, 
                     default=_nside_param, 
@@ -68,7 +70,7 @@ parser.add_argument("--ff",
                     help="Follow-up factor for second iteration of sky scan"
                    )
 
-parser.add_argument("--nsample", 
+parser.add_argument("--nsamples", 
                     dest="n_samples", 
                     type=int, 
                     default=_n_samples, 
@@ -144,7 +146,7 @@ if __name__=="__main__":
     log_tm = []
     tm = []
     for md in md_params:
-        temp = pg.calc_template(np.radians(md), pg._get_UHECR_positions(120, crpath))
+        temp = pg.calc_template(np.radians(md), pg._get_UHECR_positions(70, crpath))
         log_tm.extend(temp)
         temp = np.exp(temp)
         tm.extend(temp/temp.sum(axis=1)[np.newaxis].T)

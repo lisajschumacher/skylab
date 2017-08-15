@@ -126,7 +126,7 @@ if __name__=="__main__":
             identifier+=arg+str(getattr(args, arg))+"_"
     if identifier[-1]=="_": identifier=identifier[:-1] #remove last underscore
 
-    basepath, inipath, savepath, crpath = utils.get_paths(gethostname())
+    basepath, inipath, savepath, crpath, _ = utils.get_paths(gethostname())
     print "Data will be saved to: ", savepath
     print "With Identifier: ", identifier
 

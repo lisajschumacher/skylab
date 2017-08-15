@@ -33,12 +33,12 @@ logging.getLogger("skylab.stacking_priorllh.MultiStackingPriorLLH").setLevel(lev
 logging.getLogger("skylab.prior_injector.PriorInjector").setLevel(level)
 
 pVal_func = None
-_n_iter = 10
+_niter = 10
 _job = 0
-_nside_param = 6
-_follow_up_factor = 2
+_nsideparam = 6
+_followupfactor = 2
 _burn = False
-_n_samples = 7
+_nsamples = 7
 
 
 parser = ArgumentParser()
@@ -50,30 +50,30 @@ parser.add_argument("--job",
                     )
 
 parser.add_argument("--niter", 
-                    dest="n_iter", 
+                    dest="niter", 
                     type=int, 
-                    default=_n_iter, 
+                    default=_niter,
                     help="Number of trial iterations"
                    )
 
 parser.add_argument("--nsideparam", 
-                    dest="nside_param", 
+                    dest="nsideparam", 
                     type=int, 
-                    default=_nside_param, 
-                    help="Nside parameter for HealPy Maps, nside=2**nside_param"
+                    default=_nsideparam, 
+                    help="Nside parameter for HealPy Maps, nside=2**nsideparam"
                    )
 
 parser.add_argument("--ff", 
-                    dest="follow_up_factor", 
+                    dest="followupfactor", 
                     type=int, 
-                    default=_follow_up_factor, 
+                    default=_followupfactor, 
                     help="Follow-up factor for second iteration of sky scan"
                    )
 
 parser.add_argument("--nsamples", 
-                    dest="n_samples", 
+                    dest="nsamples", 
                     type=int, 
-                    default=_n_samples, 
+                    default=_nsamples, 
                     help="Number of samples, from IC40 to latest IC86"
                    )
 
@@ -98,25 +98,25 @@ if __name__=="__main__":
 
     args = parser.parse_args()
 
-    if args.n_iter<1:
-        print("number of iterations {} too small, chose {} instead".format(args.n_iter, _n_iter))
-        args.n_iter = _n_iter
+    if args.niter<1:
+        print("number of iterations {} too small, chose {} instead".format(args.niter, _niter))
+        args.niter = _niter
 
     if args.job<0:
         print("jobID {} too small, chose {} instead".format(args.job, _job))
         args.job = _job
 
-    if args.n_samples<=1 or args.n_samples>7:
-        print("Number of samples {} not in correct range, chose {} instead".format(args.n_samples, _n_samples))
-        args.n_samples = _n_samples
+    if args.nsamples<=1 or args.nsamples>7:
+        print("Number of samples {} not in correct range, chose {} instead".format(args.nsamples, _nsamples))
+        args.nsamples = _nsamples
 
-    if args.nside_param>7 or args.nside_param<3:
-        print("nside_param {} not in correct range, chose {} instead".format(args.nside_param, _nside_param))
-        args.nside_param = _nside_param
+    if args.nsideparam>7 or args.nsideparam<3:
+        print("nsideparam {} not in correct range, chose {} instead".format(args.nsideparam, _nsideparam))
+        args.nsideparam = _nsideparam
 
-    if args.follow_up_factor<0 or args.follow_up_factor>3:
-        print("follow_up_factor {} not in correct range, chose {} instead".format(args.follow_up_factor, _follow_up_factor))
-        args.follow_up_factor = _follow_up_factor
+    if args.followupfactor<0 or args.followupfactor>3:
+        print("follow_up_factor {} not in correct range, chose {} instead".format(args.followupfactor, _followupfactor))
+        args.followupfactor = _followupfactor
 
     # get the parameter args and get a string for saving later
     identifier=args.add
@@ -131,7 +131,7 @@ if __name__=="__main__":
     print "With Identifier: ", identifier
 
     hemispheres = dict(North = np.radians([-5., 90.]), South = np.radians([-90., -5.]))
-    nside = 2**args.nside_param
+    nside = 2**args.nsideparam
 
     # Other stuff
     if "physik.rwth-aachen.de" in gethostname():
@@ -142,7 +142,7 @@ if __name__=="__main__":
     # Generate several templates for prior fitting
     # One for each deflection hypothesis each
     md_params = [3., 6.]
-    pg = UhecrPriorGenerator(args.nside_param)
+    pg = UhecrPriorGenerator(args.nsideparam)
     log_tm = []
     tm = []
     for md in md_params:
@@ -156,18 +156,19 @@ if __name__=="__main__":
     
     startup_dict = dict(basepath = basepath,
                         inipath = inipath,
+                        seed = args.job,
                         Nsrc = 0, ### Background ###
                         fixed_gamma = True,
                         add_prior = True,
                         src_gamma = 2.,
                         fit_gamma = 2.,
-                        multi = True if args.n_samples>1 else False,
+                        multi = True if args.nsamples>1 else False,
                         n_uhecr = pg.n_uhecr,
                         # prior = tm1, # not needed for Background
-                        nside_param = args.nside_param,
+                        nside_param = args.nsideparam,
                         burn = args.burn,
                         ncpu = ncpu,
-                        n_samples = args.n_samples,
+                        n_samples = args.nsamples,
                         mode = "box")
 
     llh, injector = utils.startup(**startup_dict)
@@ -177,10 +178,10 @@ if __name__=="__main__":
     else:
         mu = injector.sample(Nsrc, poisson=True)
 
-    trials_dict = dict(n_iter = args.n_iter, 
+    trials_dict = dict(n_iter = args.niter, 
                         mu = mu,  
                         nside = nside,
-                        follow_up_factor = args.follow_up_factor,
+                        follow_up_factor = args.followupfactor,
                         pVal = pVal_func,
                         fit_gamma = 2.)
     start1 = time.time() 
@@ -196,9 +197,10 @@ if __name__=="__main__":
     # Save the results
     savepath = os.path.join(savepath, identifier)
     utils.prepare_directory(savepath)
-    utils.save_json_data(startup_dict, savepath, "startup_dict")
-    utils.save_json_data(trials_dict, savepath, "trials_dict")
-    utils.save_json_data(hemispheres.keys(), savepath, "hemispheres")
+    if args.job == 0:
+        utils.save_json_data(startup_dict, savepath, "startup_dict")
+        utils.save_json_data(trials_dict, savepath, "trials_dict")
+        utils.save_json_data(hemispheres.keys(), savepath, "hemispheres")
     for i,hs in enumerate(best_hotspots):
         hs = numpy.lib.recfunctions.append_fields(hs, 
             ["energy", "deflection"], 
@@ -206,7 +208,7 @@ if __name__=="__main__":
                   np.repeat(md_params, pg.n_uhecr)],
             dtypes=[np.float, np.float], 
             usemask=False)
-        np.savetxt(os.path.join(savepath, "hotspots_"+str(i)+".txt"),
+        np.savetxt(os.path.join(savepath,  "job"+str(args.job)+"_hotspots_"+str(i)+".txt"),
                    hs,
                    header=" ".join(hs.dtype.names),
                    comments="")

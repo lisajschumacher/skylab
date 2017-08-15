@@ -24,8 +24,8 @@ tw = 5.31
 
 logging.basicConfig(level=logging.WARN)
 
-def startup(basepath, inipath, multi=False, n_samples=2, **kwargs):
-
+def startup(basepath, inipath, seed=0, multi=False, n_samples=2, **kwargs):
+    ic_data.set_seed(seed)
     if multi:
         """ Initialize multiple data sets: MC and EXP
         Initialize injector with multiple data sets

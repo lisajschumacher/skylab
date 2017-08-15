@@ -29,8 +29,10 @@ log_sig = 0.2
 logE_res = 0.1
 
 # fix seed to reproduce same results
-seed=1+3+3+7
-np.random.seed(seed)
+def set_seed(n):
+    n = int(n)
+    seed=1+3+3+7+n
+    np.random.seed(seed)
 
 def load_data(basepath, inipath, filename, shuffle_bool=True, burn=True):
     """ 

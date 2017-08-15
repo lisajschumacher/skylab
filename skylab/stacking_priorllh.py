@@ -59,13 +59,6 @@ class StackingPriorLLH(psLLH.PointSourceLLH):
 	
 	def __init__(self, *args, **kwargs):
 		super(StackingPriorLLH, self).__init__(*args, **kwargs)
-	'''
-	# In Case of wanting to change the init ...
-	def __init__(self, exp, mc, livetime, llh_model, scramble=True, mode="box",
-				 delta_ang=np.deg2rad(10.), thresh_S=0., **kwargs):
-		super(PriorLLH, self).__init__(exp, mc, livetime, llh_model, scramble=scramble,
-				mode=mode, delta_ang=delta_ang, thresh_S=thresh_S, **kwargs)
-	'''
 
 	def all_sky_scan(self, prior, nside=128, follow_up_factor=2,
 						hemispheres=None, pVal=None, **kwargs):
@@ -490,7 +483,7 @@ class StackingPriorLLH(psLLH.PointSourceLLH):
 			
 			if i==n_iter-1: break # break after enough trials
 
-		return best_hotspots #trials, 
+		return best_hotspots #trials,
 
 class MultiStackingPriorLLH(psLLH.MultiPointSourceLLH):
 	r"""

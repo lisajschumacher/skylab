@@ -21,13 +21,20 @@ from skylab.prior_injector import PriorInjector
 import ic_utils as utils
 
 
-level=logging.WARNING
+level=logging.INFO
 logging.getLogger("skylab.psLLH.PointSourceLLH").setLevel(level)
 logging.getLogger("skylab.priorllh.PriorLLH").setLevel(level)
 logging.getLogger("skylab.stacking_priorllh.StackingPriorLLH").setLevel(level)
 logging.getLogger("skylab.stacking_priorllh.MultiStackingPriorLLH").setLevel(level)
 logging.getLogger("skylab.prior_injector.PriorInjector").setLevel(level)
 
+label = dict(TS=r"$\mathcal{TS}$",
+             postTS=r"post-prior $\mathcal{TS}$",
+             preTS=r"pre-prior $\mathcal{TS}$",
+             allPrior=r"Prior",
+             nsources=r"$n_S$",
+             gamma=r"$\gamma$",
+             )
 pVal_func = None
 _nsideparam = 4
 _followupfactor = 2
@@ -99,12 +106,17 @@ if __name__=="__main__":
             identifier+=arg+str(getattr(args, arg))+"_"
     if identifier[-1]=="_": identifier=identifier[:-1] #remove last underscore
 
-    basepath, inipath, savepath, crpath = utils.get_paths(gethostname())
+    basepath, inipath, savepath, crpath, figurepath= utils.get_paths(gethostname())
     print "Data will be saved to: ", savepath
     print "With Identifier: ", identifier
 
     hemispheres = dict(North = np.radians([-5., 90.]), South = np.radians([-90., -5.]))
     nside = 2**args.nsideparam
+    backend = "svg"
+    extension = "_test.png"
+    mark_hotspots = False
+    
+    plt = utils.plotting(backend=backend)
 
     # Other stuff
     if "physik.rwth-aachen.de" in gethostname():
@@ -114,12 +126,12 @@ if __name__=="__main__":
 
     # Generate several templates for prior fitting
     # One for each deflection hypothesis each
-    md_params = [3., 6.]
+    md_params = [6.]
     pg = UhecrPriorGenerator(args.nsideparam)
     log_tm = []
     tm = []
     for md in md_params:
-        temp = pg.calc_template(np.radians(md), pg._get_UHECR_positions(70, crpath))
+        temp = pg.calc_template(np.radians(md), pg._get_UHECR_positions(120, crpath))
         log_tm.extend(temp)
         temp = np.exp(temp)
         tm.extend(temp/temp.sum(axis=1)[np.newaxis].T)
@@ -161,7 +173,7 @@ if __name__=="__main__":
                                 prior=log_tm,
                                 **scan_dict)
                                 ):
-
+        if args.followupfactor == 0: break # In case you don't want a follow-up
         if i > 0:
             # break after first follow up
             break
@@ -175,7 +187,8 @@ if __name__=="__main__":
     # Looking at the hotspots and separating them into North and South
     hk = hemispheres.keys()
     print "Hemisphere keys:", hk
-    best_hotspots = np.zeros(pg.n_uhecr, dtype=[(p, np.float) for p in hk]
+    best_hotspots = np.zeros(pg.n_uhecr*len(md_params),
+                             dtype=[(p, np.float) for p in hk]
                                                 +[("best", np.float)]
                                                 +[("dec", np.float)]
                                                 +[("ra", np.float)]
@@ -206,7 +219,7 @@ if __name__=="__main__":
     what_to_plot = ["preTS", "allPrior"] 
 
     for key in what_to_plot + llh.params:
-        if fixed_gamma and key == "gamma": continue # skip gamma, if fixed
+        if key == "gamma": continue # skip gamma
         eps = 0.1 if key not in what_to_plot else 0.0
         vmin, vmax = np.percentile(scan[key], [eps, 100. - eps])
         vmin = np.floor(max(0, vmin))
@@ -230,13 +243,13 @@ if __name__=="__main__":
                            color="orange",
                            alpha=0.25,
                            label="Injected")
-        fig.savefig(figure_path+"skymap_" + key + extension, dpi=256)
+        fig.savefig(figurepath+"/skymap_" + key + extension, dpi=256)
         plt.close("all")
     # Now we look at the single results:
     if True:
         c=0
         key="postTS"
-        for i,s in enumerate(llh.postTS[:2]):
+        for i,s in enumerate(llh.postTS):
             vmin, vmax = np.percentile(s, [0., 100.])
             vmin = np.floor(max(0, vmin))
             vmax = min(8, np.ceil(vmax))
@@ -246,19 +259,21 @@ if __name__=="__main__":
                                    vmin=vmin, vmax=vmax,
                                    colorbar=dict(title=label[key]),
                                    rasterized=True)
-        if mark_hotspots:
-            for bhi in best_hotspots:
-                ax.scatter(np.pi - bhi["ra"], bhi["dec"], 20,
-                       marker="o",
-                       color="cyan",
-                       alpha=0.25,
-                       label="Hotspot fit")
-            if Nsrc>0:
-                ax.scatter(np.pi - injector._src_ra, injector._src_dec, 20,
-                           marker="d",
-                           color="orange",
+            if mark_hotspots:
+                for bhi in best_hotspots:
+                    ax.scatter(np.pi - bhi["ra"], bhi["dec"], 20,
+                           marker="o",
+                           color="cyan",
                            alpha=0.25,
-                           label="Injected")
-        fig.savefig(figure_path+"skymap_postTS_" + str(c) + extension, dpi=256)
-        plt.close("all")
-        c+=1
+                           label="Hotspot fit")
+                if Nsrc>0:
+                    ax.scatter(np.pi - injector._src_ra, injector._src_dec, 20,
+                               marker="d",
+                               color="orange",
+                               alpha=0.25,
+                               label="Injected")
+            fig.savefig(figurepath+"/skymap_postTS_" + str(c) + extension, dpi=256)
+            plt.close("all")
+            c+=1
+
+            

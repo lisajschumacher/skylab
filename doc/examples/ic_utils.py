@@ -133,22 +133,25 @@ def get_paths(hostname):
         inipath="/net/scratch_icecube4/user/lschumacher/projects/data/ps_sample/coenders_pub"
         savepath = "/net/scratch_icecube4/user/lschumacher/projects/stacking/hotspot_fitting"
         crpath = "/home/home2/institut_3b/lschumacher/phd_stuff/phd_code_git/data"
+        figurepath = "/home/home2/institut_3b/lschumacher/Pictures/uhecr_correlation/plots"
 
     elif "M16" in hostname:
         savepath = "/home/icecube/Documents/test_data/hotspot_fitting"
         basepath="/home/icecube/Documents/DataPS"
         inipath="/home/icecube/Documents/DataPS"
         crpath = "/home/icecube/general_code_repo/data"
+        figurepath = "/home/icecube/Pictures/plots"
         
     elif "icecube.wisc.edu" in hostname:
         basepath = "/data/user/coenders/data/MultiYearPointSource/npz"
         inipath = "/data/user/lschumacher/config_files_ps"
         savepath = "/data/user/lschumacher/projects/stacking/hotspot_fitting"
         crpath = "/home/lschumacher/git_repos/general_code_repo/data"
+        figurepath = "/home/lschumacher/plots"
     else:
         print("Unknown Host, please go to this function and set your paths accordingly")
         return None
-    return basepath, inipath, savepath, crpath
+    return basepath, inipath, savepath, crpath, figurepath
 
 def prepare_directory(direc, mode=0754):
     """ 

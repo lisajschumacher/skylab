@@ -113,8 +113,9 @@ if __name__=="__main__":
     hemispheres = dict(North = np.radians([-5., 90.]), South = np.radians([-90., -5.]))
     nside = 2**args.nsideparam
     backend = "svg"
-    extension = "_test.png"
-    mark_hotspots = False
+    extension = "_with_hotspots.png"
+    mark_hotspots = True
+    Nsrc = 0
     
     plt = utils.plotting(backend=backend)
 

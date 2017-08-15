@@ -3,6 +3,7 @@
 import os
 import logging
 from socket import gethostname
+from argparse import ArgumentParser
 
 # scipy
 from scipy.stats import chi2
@@ -20,93 +21,152 @@ from skylab.prior_injector import PriorInjector
 import ic_utils as utils
 
 
-logging.getLogger("skylab.psLLH.PointSourceLLH").setLevel(logging.INFO)
-logging.getLogger("skylab.priorllh.PriorLLH").setLevel(logging.INFO)
-logging.getLogger("skylab.stacking_priorllh.StackingPriorLLH").setLevel(logging.INFO)
-logging.getLogger("skylab.stacking_priorllh.MultiStackingPriorLLH").setLevel(logging.INFO)
-logging.getLogger("skylab.prior_injector.PriorInjector").setLevel(logging.INFO)
+level=logging.WARNING
+logging.getLogger("skylab.psLLH.PointSourceLLH").setLevel(level)
+logging.getLogger("skylab.priorllh.PriorLLH").setLevel(level)
+logging.getLogger("skylab.stacking_priorllh.StackingPriorLLH").setLevel(level)
+logging.getLogger("skylab.stacking_priorllh.MultiStackingPriorLLH").setLevel(level)
+logging.getLogger("skylab.prior_injector.PriorInjector").setLevel(level)
 
-# convert test statistic to a p-value for a given point
-pVal_func = lambda TS, dec: -np.log10(0.5 * (chi2(len(llh.params)).sf(TS)
-                                             + chi2(len(llh.params)).cdf(-TS)))
+pVal_func = None
+_nsideparam = 4
+_followupfactor = 2
+_burn = True
+_nsamples = 2
 
-label = dict(TS=r"$\mathcal{TS}$",
-             preTS=r"pre-prior $\mathcal{TS}$",
-             postTS=r"post-prior $\mathcal{TS}$",
-             prior=r"prior",
-             allPrior=r"Combined prior",
-             nsources=r"$n_S$",
-             gamma=r"$\gamma$",
-             )
 
-basepath, inipath, savepath, crpath = utils.get_paths(gethostname())
+parser = ArgumentParser()
+
+parser.add_argument("--nsideparam", 
+                    dest="nsideparam", 
+                    type=int, 
+                    default=_nsideparam, 
+                    help="Nside parameter for HealPy Maps, nside=2**nsideparam"
+                   )
+
+parser.add_argument("--ff", 
+                    dest="followupfactor", 
+                    type=int, 
+                    default=_followupfactor, 
+                    help="Follow-up factor for second iteration of sky scan"
+                   )
+
+parser.add_argument("--nsamples", 
+                    dest="nsamples", 
+                    type=int, 
+                    default=_nsamples, 
+                    help="Number of samples, from IC40 to latest IC86"
+                   )
+
+parser.add_argument("--burn", 
+                    dest="burn", 
+                    action="store_true" 
+                   )
+parser.add_argument("--full", 
+                    dest="burn", 
+                    action="store_false" 
+                   )
+parser.set_defaults(burn=_burn)
+
+parser.add_argument("--add", 
+                    dest="add", 
+                    type=str, 
+                    default="", 
+                    help="Additional string for saving path"
+                   )
 
 if __name__=="__main__":
-    
-    backend = "svg"
-    extension = "_testing_hemispheres.png"
-    plt = utils.plotting(backend=backend)
-    hemispheres = dict(North = np.radians([-5., 90.]), South = np.radians([-90., -5.]))
-    hcolor = dict(North = "cyan", South = "red")
 
-    nside_param = 4
-    nside = 2**nside_param
-    
-    multi = False # work with single or multiple different samples
-    # LLH and Fitting parameters
-    fixed_gamma = True
-    add_prior = True
-    src_gamma = 2.
-    fit_gamma = 2.
-    Nsrc = 0
+    args = parser.parse_args()
+
+    if args.nsamples<=1 or args.nsamples>7:
+        print("Number of samples {} not in correct range, chose {} instead".format(args.nsamples, _nsamples))
+        args.nsamples = _nsamples
+
+    if args.nsideparam>7 or args.nsideparam<3:
+        print("nsideparam {} not in correct range, chose {} instead".format(args.nsideparam, _nsideparam))
+        args.nsideparam = _nsideparam
+
+    if args.followupfactor<0 or args.followupfactor>3:
+        print("follow_up_factor {} not in correct range, chose {} instead".format(args.followupfactor, _followupfactor))
+        args.followupfactor = _followupfactor
+
+    # get the parameter args and get a string for saving later
+    identifier=args.add
+    if identifier[-1]!="_": identifier+="_"
+    for arg in vars(args):
+        if arg!="job" and arg!="add":
+            identifier+=arg+str(getattr(args, arg))+"_"
+    if identifier[-1]=="_": identifier=identifier[:-1] #remove last underscore
+
+    basepath, inipath, savepath, crpath = utils.get_paths(gethostname())
+    print "Data will be saved to: ", savepath
+    print "With Identifier: ", identifier
+
+    hemispheres = dict(North = np.radians([-5., 90.]), South = np.radians([-90., -5.]))
+    nside = 2**args.nsideparam
 
     # Other stuff
     if "physik.rwth-aachen.de" in gethostname():
         ncpu = 4
     else:
         ncpu = 1
-    burn = True
-    inj_seed = 666
-    save_res = True
-    identifier = "test_"
-    mark_hotspots = False
 
-    # "/home/home2/institut_3b/lschumacher/phd_stuff/phd_code_git/data"
-    # "/home/lschumacher/git_repos/general_code_repo/data"
-    pg = UhecrPriorGenerator(nside_param, np.radians(6), 100, crpath)
-    tm = np.exp(pg.template)
-    tm = tm/tm.sum(axis=1)[np.newaxis].T
+    # Generate several templates for prior fitting
+    # One for each deflection hypothesis each
+    md_params = [3., 6.]
+    pg = UhecrPriorGenerator(args.nsideparam)
+    log_tm = []
+    tm = []
+    for md in md_params:
+        temp = pg.calc_template(np.radians(md), pg._get_UHECR_positions(70, crpath))
+        log_tm.extend(temp)
+        temp = np.exp(temp)
+        tm.extend(temp/temp.sum(axis=1)[np.newaxis].T)
+    log_tm = np.array(log_tm)
+    tm = np.array(tm)
+    energies = pg.energy
+    
+    startup_dict = dict(basepath = basepath,
+                        inipath = inipath,
+                        seed = 0,
+                        Nsrc = 0, ### Background ###
+                        fixed_gamma = True,
+                        add_prior = True,
+                        src_gamma = 2.,
+                        fit_gamma = 2.,
+                        multi = True if args.nsamples>1 else False,
+                        n_uhecr = pg.n_uhecr,
+                        # prior = tm1, # not needed for Background
+                        nside_param = args.nsideparam,
+                        burn = args.burn,
+                        ncpu = ncpu,
+                        n_samples = args.nsamples,
+                        mode = "box")
 
+    llh, injector = utils.startup(**startup_dict)
+    
+    if injector==None:
+        mu = None
+    else:
+        mu = injector.sample(Nsrc, poisson=True)
 
-    llh, injector = utils.startup(basepath,
-                                    inipath,
-                                    Nsrc=Nsrc,
-                                    fixed_gamma=fixed_gamma,
-                                    add_prior=add_prior,
-                                    src_gamma=src_gamma,
-                                    multi=multi,
-                                    n_uhecr=pg.n_uhecr,
-                                    prior=tm,
-                                    nside_param=nside_param,
-                                    burn=burn,
-                                    inj_seed=inj_seed,
-                                    ncpu=ncpu
-                                    )
-    #~ print(llh)
+    scan_dict = dict(mu = mu,  
+                        nside = nside,
+                        follow_up_factor = args.followupfactor,
+                        pVal = pVal_func,
+                        fit_gamma = 2.)
     # iterator of all-sky scan with follow up scans of most interesting points
-    for i, (scan, hotspots) in enumerate(llh.all_sky_scan(
-                                nside=nside, follow_up_factor=1,
-                                pVal=pVal_func,
-                                hemispheres=hemispheres,
-                                prior=pg.template,
-                                fit_gamma=fit_gamma)
+    for i, (scan, hotspots) in enumerate(llh.all_sky_scan(hemispheres=hemispheres,
+                                prior=log_tm,
+                                **scan_dict)
                                 ):
 
         if i > 0:
             # break after first follow up
             break
-    #~ for k in scan.dtype.names:
-        #~ scan[k] = hp.sphtfunc.smoothing(scan[k], sigma=np.radians(0.5))
+    for k in scan.dtype.names:
+        scan[k] = hp.sphtfunc.smoothing(scan[k], sigma=np.radians(0.5))
 
     eps = 1.
     # Custom colormap using cubehelix from seaborn, see utils
@@ -140,8 +200,8 @@ if __name__=="__main__":
     print best_hotspots
 
     # Plotting
-    if not os.path.exists("figures"):
-        os.makedirs("figures")
+    #if not os.path.exists("figures"):
+    #    os.makedirs("figures")
 
     what_to_plot = ["preTS", "allPrior"] 
 
@@ -170,13 +230,13 @@ if __name__=="__main__":
                            color="orange",
                            alpha=0.25,
                            label="Injected")
-        fig.savefig("figures/skymap_" + key + extension, dpi=256)
+        fig.savefig(figure_path+"skymap_" + key + extension, dpi=256)
         plt.close("all")
     # Now we look at the single results:
-    if False:
+    if True:
         c=0
         key="postTS"
-        for i,s in enumerate(llh.postTS):
+        for i,s in enumerate(llh.postTS[:2]):
             vmin, vmax = np.percentile(s, [0., 100.])
             vmin = np.floor(max(0, vmin))
             vmax = min(8, np.ceil(vmax))
@@ -199,6 +259,6 @@ if __name__=="__main__":
                            color="orange",
                            alpha=0.25,
                            label="Injected")
-        fig.savefig("figures/skymap_postTS_" + str(c) + extension, dpi=256)
+        fig.savefig(figure_path+"skymap_postTS_" + str(c) + extension, dpi=256)
         plt.close("all")
         c+=1

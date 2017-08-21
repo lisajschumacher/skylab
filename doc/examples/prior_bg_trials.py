@@ -27,10 +27,10 @@ import ic_utils as utils
 
 level=logging.WARNING
 logging.getLogger("skylab.psLLH.PointSourceLLH").setLevel(level)
-logging.getLogger("skylab.priorllh.PriorLLH").setLevel(level)
 logging.getLogger("skylab.stacking_priorllh.StackingPriorLLH").setLevel(level)
 logging.getLogger("skylab.stacking_priorllh.MultiStackingPriorLLH").setLevel(level)
 logging.getLogger("skylab.prior_injector.PriorInjector").setLevel(level)
+logging.getLogger("MixIn").setLevel(level)
 
 pVal_func = None
 _niter = 10
@@ -39,7 +39,8 @@ _nsideparam = 6
 _followupfactor = 2
 _burn = False
 _nsamples = 7
-
+_mdparams = [3.,6.]
+_ecut = 70
 
 parser = ArgumentParser()
 
@@ -94,6 +95,21 @@ parser.add_argument("--add",
                     help="Additional string for saving path"
                    )
 
+parser.add_argument("--ecut", 
+                    dest="ecut", 
+                    type=int, 
+                    default=_ecut, 
+                    help="Cut on UHECR energy in EeV"
+                   )
+
+parser.add_argument("--mdparams", 
+                    dest="mdparams",
+                    type=float,
+                    nargs='+', 
+                    default=_mdparams, 
+                    help="List of Magnetic deflection parameters, should range between 3 and 9 degree"
+                   )
+
 if __name__=="__main__":
 
     args = parser.parse_args()
@@ -118,11 +134,15 @@ if __name__=="__main__":
         print("follow_up_factor {} not in correct range, chose {} instead".format(args.followupfactor, _followupfactor))
         args.followupfactor = _followupfactor
 
+    if args.ecut<0 or args.ecut>180:
+        print("ecut {} not in correct range, chose {} instead".format(args.ecut, _ecut))
+        args.ecut = _ecut
+
     # get the parameter args and get a string for saving later
     identifier=args.add
     if identifier[-1]!="_": identifier+="_"
     for arg in vars(args):
-        if arg!="job" and arg!="add":
+        if arg!="job" and arg!="add" and arg!="mdparams":
             identifier+=arg+str(getattr(args, arg))+"_"
     if identifier[-1]=="_": identifier=identifier[:-1] #remove last underscore
 
@@ -135,18 +155,18 @@ if __name__=="__main__":
 
     # Other stuff
     if "physik.rwth-aachen.de" in gethostname():
-        ncpu = 4
+        ncpu = 1
     else:
         ncpu = 1
 
     # Generate several templates for prior fitting
     # One for each deflection hypothesis each
-    md_params = [3., 6.]
+    md_params = np.atleast_1d(args.mdparams)
     pg = UhecrPriorGenerator(args.nsideparam)
     log_tm = []
     tm = []
     for md in md_params:
-        temp = pg.calc_template(np.radians(md), pg._get_UHECR_positions(70, crpath))
+        temp = pg.calc_template(np.radians(md), pg._get_UHECR_positions(args.ecut, crpath))
         log_tm.extend(temp)
         temp = np.exp(temp)
         tm.extend(temp/temp.sum(axis=1)[np.newaxis].T)

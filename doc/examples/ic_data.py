@@ -57,7 +57,7 @@ def load_data(basepath, inipath, filename, shuffle_bool=True, burn=True):
     config.read(join(inipath, filename+"_config.ini"))
     livetime = float(config.get("properties", "Livetime")) 
 
-    if filename in ["IC86-2013","IC86-2014"]:
+    if filename in ["IC86-2012", "IC86-2013", "IC86-2014"]:
         mc = np.load(join(basepath, "IC86-2012"+"_corrected_MC.npy"))
     else:
         mc = np.load(join(basepath, filename+"_corrected_MC.npy"))
@@ -72,8 +72,8 @@ def load_data(basepath, inipath, filename, shuffle_bool=True, burn=True):
         part=10
         print("Using {:.0f}% of experimental data to reduce cpu time ...".format(100*1./part))
         exp = np.random.choice(exp, len(exp)/part)
-        part=1
-        print("Using {:.0f}% of mc data to reduce cpu time ...".format(100*1./part))
+        part=2
+        print("Using {:.0f}% of mc data to reduce RAM ...".format(100*1./part))
         mc = np.random.choice(mc, len(mc)/part)
     
     if shuffle_bool==False:
@@ -170,9 +170,14 @@ def multi_init(n, basepath, inipath, **kwargs):
                                 nsource_bounds=(-nbounds, nbounds) if not energy else (0., nbounds),
                                 seed=np.random.randint(2**32),
                                 **kwargs)                            
-
+    loaded_IC86 = False
     for i in xrange(n):
-        mcdict[i], expdict[i], ltdict[i] = load_data(basepath, inipath, filenames[i], burn=burn)
+        if not loaded_IC86:
+            mcdict[i], expdict[i], ltdict[i] = load_data(basepath, inipath, filenames[i], burn=burn)
+        else:
+            _, expdict[i], ltdict[i] = load_data(basepath, inipath, filenames[i], burn=burn)
+        if filenames[i] in ["IC86-2012", "IC86-2013", "IC86-2014"]:
+            loaded_IC86 = False
         
     if Nsrc > 0:
         if add_prior:
@@ -192,10 +197,10 @@ def multi_init(n, basepath, inipath, **kwargs):
     else:
         injector = None
 
-            
+    max_key = max(mcdict.keys())
     for i in xrange(n):    
         llh_i =  init(arr_exp = np.append(expdict[i], sam[i]) if (Nsrc > 0) else expdict[i],
-                        arr_mc = mcdict[i],
+                        arr_mc = mcdict[min(i,max_key)],
                         livetime = ltdict[i],
                         energy=energy,
                         fixed_gamma=fixed_gamma,
@@ -207,7 +212,8 @@ def multi_init(n, basepath, inipath, **kwargs):
         llh.add_sample(str(i), llh_i)
 
     return llh, injector
-    
+
+"""    
 def single_init(filename, basepath, inipath, **kwargs):
     
     energy = kwargs.pop("energy", True)
@@ -251,4 +257,4 @@ def single_init(filename, basepath, inipath, **kwargs):
                     **kwargs
                     )
 
-    return llh, injector
+    return llh, injector"""

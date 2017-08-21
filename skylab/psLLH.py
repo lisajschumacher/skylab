@@ -207,6 +207,10 @@ class PointSourceLLH(basellh.BaseLLH):
 
         return "\n".join(lines)
 
+    def _scramble_exp(self):
+        r""" Scramble RA of experimental events"""
+        self.exp["ra"] = self.random.uniform(0., 2.*np.pi, size=self.exp.size)
+        
     def _select_events(self, src_ra, src_dec, scramble=False, inject=None):
         r"""Select events for log-likelihood evaluation.
 
@@ -474,6 +478,14 @@ class MultiPointSourceLLH(basellh.BaseLLH):
         self._enums[enum] = name
         self._samples[enum] = llh
 
+    def _scramble_exp(self):
+        r""" Scramble RA of experimental events"""
+        for enum in self._samples:
+            self._samples[enum].exp["ra"] = self.random.uniform(
+                                            0.,
+                                            2.*np.pi,
+                                            size=self._samples[enum].exp.size)
+        
     def _select_events(self, src_ra, src_dec, scramble=False, inject=None):
         self._nevents = 0
         self._nselected = 0

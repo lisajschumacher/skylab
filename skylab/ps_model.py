@@ -237,7 +237,7 @@ class ClassicLLH(NullModel):
 
         # get pdf of event distribution
         h, bins = np.histogram(np.sin(mc["trueDec"]), weights=w,
-                               bins=self.sinDec_bins, density=True)
+                               bins=self.sinDec_bins, density=False)
 
         # normalize by solid angle
         h /= np.diff(self.sinDec_bins)

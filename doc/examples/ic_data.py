@@ -213,7 +213,6 @@ def multi_init(n, basepath, inipath, **kwargs):
 
     return llh, injector
 
-"""    
 def single_init(filename, basepath, inipath, **kwargs):
     
     energy = kwargs.pop("energy", True)
@@ -257,4 +256,4 @@ def single_init(filename, basepath, inipath, **kwargs):
                     **kwargs
                     )
 
-    return llh, injector"""
+    return llh, injector

@@ -18,11 +18,13 @@ from seaborn import cubehelix_palette, set_palette
 # Makes them look nice in in both color and gray-scale prints 
 '''
 colors = cubehelix_palette(4, start=.5, rot=-1.1, dark=0.15, light=0.7, reverse=True, hue=2)
-cmap = cubehelix_palette(as_cmap=True, start=.5, rot=-0.9, dark=0.05, light=0.9, reverse=True, hue=1)
+cmap = cubehelix_palette(as_cmap=True, start=.5, rot=-0.9, dark=0., light=0.9, reverse=True, hue=1)
 cmap.set_under("black")
 cmap.set_bad("white")
-cmap_r = cubehelix_palette(as_cmap=True, start=.5, rot=-0.9, dark=0.05, light=0.9, reverse=False, hue=1)
+#~ cmap_r = cubehelix_palette(as_cmap=True, start=.75, rot=0.5, dark=0.1, light=1., reverse=False, hue=1)
+cmap_r = cubehelix_palette(as_cmap=True, start=1., rot=-0.8, dark=0.2, light=1., reverse=False, hue=1)
 cmap_r.set_under("white")
+cmap.set_bad("white")
 set_palette(colors)
 linestyles = ["-", "--", ":"]
 markers = ["o", "s", "d"]
@@ -91,7 +93,7 @@ def plotting(backend="QT4Agg"):
     rcParams['figure.subplot.bottom'] = 0.15 # Abstand von unterem Plot Ende bis zum Rand des Bildes - nuetzlich um Achsenbeschriftung nach oben zu schieben undgroesser zu machen
     rcParams['figure.subplot.wspace'] = 0.15
     rcParams['figure.subplot.hspace'] = 0.15
-    rcParams['savefig.bbox'] = 'tight'
+    #rcParams['savefig.bbox'] = 'tight'
     rcParams['savefig.pad_inches'] = 0.1
 
     mpl.rcParams.update(rcParams)
@@ -128,7 +130,7 @@ def skymap(plt, vals, **kwargs):
     title = cb.pop("title", None)
 
     p = ax.pcolormesh(lon, lat, Z, **kwargs)
-    plt.hlines(np.radians(-5.), -np.pi, np.pi, color="gray", alpha=0.75, linestyle="--")
+    plt.hlines(np.radians(-5.), -np.pi, np.pi, color="gray", alpha=0.75, linestyle="--", lw=1)
 
     cbar = fig.colorbar(p, **cb)
 
@@ -138,6 +140,8 @@ def skymap(plt, vals, **kwargs):
         cbar.set_label(title)
 
     ax.xaxis.set_ticks([])
+    plt.text(0,0, r"$180^\circ$", horizontalalignment='center')
+    plt.text(np.pi+0.1, 0, r"$0^\circ$", horizontalalignment='left')
 
     return fig, ax
 
@@ -235,13 +239,14 @@ def aeff_vs_dec_energy(mc, logE_range=(2,9), sinDec_range=(-1,1), bins=[25,10]):
     spline_logE_sinDec = interpolate.RectBivariateSpline(center_logE_bins, center_sinDec_bins, H, kx=3, ky=1)
     return H, logEEdges, sinDecEdges, spline_logE_sinDec
 	
-def plot_effective_area(mc, sinDec_range=(-1, 1), bins=[25,40], nFig=1, figsize=(20,20), cm="YlOrRd"):
+def plot_effective_area(mc, sinDec_range=(-1, 1), bins=[25,40], nFig=1, figsize=(20,20), cm="YlOrRd", title=""):
     plt = plotting("pdf")
     fig=plt.figure(nFig, figsize=figsize)
     gs = gridspec.GridSpec(2, 
                            2, 
-                           width_ratios=[3,1],
-                           height_ratios=[3,1])
+                           width_ratios=[3,2],
+                           height_ratios=[3,2])
+    gs.update(hspace=0.08, wspace=0.05)
     sinDec_steps=np.sin(np.radians([-90, -30, -5, 30, 90]))
     hist, logEEdges, sinDecEdges, spline_logE_sinDec = aeff_vs_dec_energy(mc, 
                                                                           sinDec_range=sinDec_range, 
@@ -249,33 +254,35 @@ def plot_effective_area(mc, sinDec_range=(-1, 1), bins=[25,40], nFig=1, figsize=
     Y, X = np.meshgrid(sinDecEdges, logEEdges)
     #plt.subplot(221)
     ax0=plt.subplot(gs[0])
-    im=ax0.pcolormesh(X,Y, hist, norm=LogNorm(vmin=hist.min(), vmax=hist.max()), cmap=cm) 
+    im=ax0.pcolormesh(X,Y, hist, norm=LogNorm(vmin=hist.min(), vmax=hist.max()), cmap=cm)
+    plt.title(title) 
     plt.ylim(sinDec_range)
     plt.xlim([min(logEEdges), max(logEEdges)])
+    plt.xticks([])
     plt.ylabel(r"$\sin(\delta)$")
 
     #plt.subplot(222)
     ax1=plt.subplot(gs[1])
     aeff_d = [quad(lambda x: spline_logE_sinDec(x,i), logEEdges[0], logEEdges[-1])[0]/(logEEdges[-1]-logEEdges[0])
               for i in (sinDecEdges[1:]+sinDecEdges[:-1])/2.]
-    ax1.plot(np.array(aeff_d), (sinDecEdges[1:]+sinDecEdges[:-1])/2., color=cm.colors[-1])
+    ax1.plot(np.array(aeff_d), (sinDecEdges[1:]+sinDecEdges[:-1])/2., color=cm.colors[0])
     plt.ylim(min(sinDecEdges), max(sinDecEdges))
     plt.semilogx(nonposx="clip")
     plt.xlabel(r"$\log_{10}(A_{eff}/ \mathrm{m}^2)$")
-
-
+    plt.yticks([])
+    #plt.xticks([1e1,1e2,1e3], [10,100,1000])
 
     #plt.subplot(223)
     ax2=plt.subplot(gs[2])
     aeff_e = [quad(lambda x: spline_logE_sinDec(i,x), sinDecEdges[0], sinDecEdges[-1])[0]/(sinDecEdges[-1]-sinDecEdges[0])
               for i in (logEEdges[1:]+logEEdges[:-1])/2.]
-    ax2.plot((logEEdges[1:]+logEEdges[:-1])/2.,np.array(aeff_e), color=cm.colors[-1])
+    ax2.plot((logEEdges[1:]+logEEdges[:-1])/2.,np.array(aeff_e), color=cm.colors[0])
     plt.xlim(min(logEEdges), max(logEEdges))
     plt.semilogy(nonposy="clip")
     plt.xlabel(r"$\log_{10}(E/\mathrm{GeV})$")
     plt.ylabel(r"$\log_{10}(A_{eff}/ \mathrm{m}^2)$")
 
     fig.subplots_adjust(right=0.8)
-    cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
-    fig.colorbar(im,cax=cbar_ax).set_label(r"$\log_{10}(A_{eff}/ \mathrm{m}^2)$")
-    return fig, hist, logEEdges, sinDecEdges, spline_logE_sinDec
+    cbar_ax = fig.add_axes([0.82, 0.47, 0.025, 0.4])
+    fig.colorbar(im,cax=cbar_ax, ticks=[1e-3, 1e-1, 1e1, 1e3]).set_label(r"$\log_{10}(A_{eff}/ \mathrm{m}^2)$")
+    return fig, ax0, hist, logEEdges, sinDecEdges, spline_logE_sinDec

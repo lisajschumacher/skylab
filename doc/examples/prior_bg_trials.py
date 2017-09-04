@@ -176,7 +176,7 @@ if __name__=="__main__":
     
     startup_dict = dict(basepath = basepath,
                         inipath = inipath,
-                        seed = args.job,
+                        seed = np.random.randint(2**32-args.job),
                         Nsrc = 0, ### Background ###
                         fixed_gamma = True,
                         add_prior = True,

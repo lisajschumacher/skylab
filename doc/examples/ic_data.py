@@ -185,13 +185,13 @@ def multi_init(n, basepath, inipath, **kwargs):
                                         prior,
                                         nside_param=nside_param,
                                         n_uhecr=n_uhecr,
-                                        seed=seed)
+                                        seed=np.random.randint(2**32))
             injector.fill(mcdict, ltdict)
             sam = injector.sample(Nsrc, poisson=True).next()[1]
         else:
             src_dec = kwargs.pop("src_dec", 0.)
             src_ra = kwargs.pop("src_ra", np.pi/2.)
-            injector = PointSourceInjector(src_gamma, sinDec_bandwidth=1, seed=seed)
+            injector = PointSourceInjector(src_gamma, sinDec_bandwidth=1, seed=np.random.randint(2**32))
             injector.fill(src_dec, mcdict, ltdict)
             sam = injector.sample(src_ra, Nsrc, poisson=True).next()[1]
     else:

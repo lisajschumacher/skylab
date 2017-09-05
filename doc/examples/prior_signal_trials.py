@@ -39,8 +39,9 @@ _nsideparam = 6
 _followupfactor = 2
 _burn = False
 _nsamples = 7
-_mdparams = [3.,6.]
+_mdparams = [6.]
 _ecut = 70
+_mu = 3.0
 
 parser = ArgumentParser()
 
@@ -55,6 +56,13 @@ parser.add_argument("--niter",
                     type=int, 
                     default=_niter,
                     help="Number of trial iterations"
+                   )
+
+parser.add_argument("--mu", 
+                    dest="mu", 
+                    type=float, 
+                    default=_mu,
+                    help="Mean number of neutrinos per source, 0 will lead to background trials"
                    )
 
 parser.add_argument("--nsideparam", 
@@ -105,9 +113,8 @@ parser.add_argument("--ecut",
 parser.add_argument("--mdparams", 
                     dest="mdparams",
                     type=float,
-                    nargs='+', 
                     default=_mdparams, 
-                    help="List of Magnetic deflection parameters, should range between 3 and 9 degree"
+                    help="Magnetic deflection parameter, should range between 3 and 9 degree"
                    )
 
 if __name__=="__main__":
@@ -139,16 +146,21 @@ if __name__=="__main__":
         args.ecut = _ecut
 
     # get the parameter args and get a string for saving later
-    identifier=args.add
-    if identifier[-1]!="_": identifier+="_"
-    for arg in vars(args):
-        if arg!="job" and arg!="add" and arg!="mdparams":
-            identifier+=arg+str(getattr(args, arg))+"_"
-    if identifier[-1]=="_": identifier=identifier[:-1] #remove last underscore
-
-    # Add time since epoch as additional unique label if we are not testing
     if not "test" in args.add.lower():
-        identifier = str(int(time.time()))+"_"+identifier
+        # Add time since epoch as additional unique label if we are not testing        
+        identifier = str(int(time.time()))+"_"
+        identifier += args.add
+        if identifier[-1]!="_": identifier+="_"
+        for arg in vars(args):
+            if arg!="job" and arg!="add":
+                identifier+=arg+str(getattr(args, arg))+"_"
+        # Remove last underscore
+        if identifier[-1]=="_": identifier=identifier[:-1]
+        seed = np.random.randint(2**32-args.job)
+    else:
+        identifier = args.add
+        seed = args.job
+        
     basepath, inipath, savepath, crpath, _ = utils.get_paths(gethostname())
     print "Data will be saved to: ", savepath
     print "With Identifier: ", identifier
@@ -164,45 +176,36 @@ if __name__=="__main__":
 
     # Generate several templates for prior fitting
     # One for each deflection hypothesis each
-    md_params = np.atleast_1d(args.mdparams)
     pg = UhecrPriorGenerator(args.nsideparam)
-    log_tm = []
-    tm = []
-    for md in md_params:
-        temp = pg.calc_template(np.radians(md), pg._get_UHECR_positions(args.ecut, crpath))
-        log_tm.extend(temp)
-        temp = np.exp(temp)
-        tm.extend(temp/temp.sum(axis=1)[np.newaxis].T)
-    log_tm = np.array(log_tm)
-    tm = np.array(tm)
+    log_tm = pg.calc_template(np.radians(args.mdparams), pg._get_UHECR_positions(args.ecut, crpath))
+    temp = np.exp(log_tm)
+    tm = temp/temp.sum(axis=1)[np.newaxis].T
     energies = pg.energy
     
     startup_dict = dict(basepath = basepath,
                         inipath = inipath,
-                        seed = np.random.randint(2**32-args.job),
-                        Nsrc = 0, ### Background ###
+                        seed = seed,
+                        Nsrc = args.mu, ### Signal ###
                         fixed_gamma = True,
                         add_prior = True,
                         src_gamma = 2.,
                         fit_gamma = 2.,
                         multi = True if args.nsamples>1 else False,
                         n_uhecr = pg.n_uhecr,
-                        # prior = tm1, # not needed for Background
                         nside_param = args.nsideparam,
                         burn = args.burn,
                         ncpu = ncpu,
                         n_samples = args.nsamples,
                         mode = "box")
 
-    llh, injector = utils.startup(**startup_dict)
+    llh, injector = utils.startup(prior = tm, **startup_dict)
 
     if injector==None:
         mu = None
     else:
-        mu = injector.sample(Nsrc, poisson=True)
+        mu = injector.sample(args.mu, poisson=True)
 
     trials_dict = dict(n_iter = args.niter, 
-                        mu = mu,  
                         nside = nside,
                         follow_up_factor = args.followupfactor,
                         pVal = pVal_func,
@@ -210,13 +213,14 @@ if __name__=="__main__":
     start1 = time.time() 
     best_hotspots = llh.do_trials(prior = log_tm,
                         hemispheres = hemispheres,
+                        mu = mu, 
                         **trials_dict)
     stop1 = time.time()
 
     mins, secs = divmod(stop1 - start1, 60)
     hours, mins = divmod(mins, 60)
     print("Full scan finished after {2:2d}h {0:2d}m {1:2d}s".format(int(mins), int(secs), int(hours)))
-
+    print(best_hotspots)
     # Save the results
     savepath = os.path.join(savepath, identifier)
     utils.prepare_directory(savepath)
@@ -226,11 +230,10 @@ if __name__=="__main__":
         utils.save_json_data(hemispheres.keys(), savepath, "hemispheres")
     for i,hs in enumerate(best_hotspots):
         hs = numpy.lib.recfunctions.append_fields(hs, 
-            ["energy", "deflection"], 
-            data=[np.tile(energies, len(md_params)), 
-                  np.repeat(md_params, pg.n_uhecr)],
-            dtypes=[np.float, np.float], 
-            usemask=False)
+                                                "energy", 
+                                                data=energies,
+                                                dtypes=np.float, 
+                                                usemask=False)
         np.savetxt(os.path.join(savepath,  "job"+str(args.job)+"_hotspots_"+str(i)+".txt"),
                    hs,
                    header=" ".join(hs.dtype.names),

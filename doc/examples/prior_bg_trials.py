@@ -138,17 +138,23 @@ if __name__=="__main__":
         print("ecut {} not in correct range, chose {} instead".format(args.ecut, _ecut))
         args.ecut = _ecut
 
-    # get the parameter args and get a string for saving later
-    identifier=args.add
-    if identifier[-1]!="_": identifier+="_"
-    for arg in vars(args):
-        if arg!="job" and arg!="add" and arg!="mdparams":
-            identifier+=arg+str(getattr(args, arg))+"_"
-    if identifier[-1]=="_": identifier=identifier[:-1] #remove last underscore
 
-    # Add time since epoch as additional unique label if we are not testing
+    # get the parameter args and get a string for saving later
     if not "test" in args.add.lower():
-        identifier = str(int(time.time()))+"_"+identifier
+        # Add time since epoch as additional unique label if we are not testing        
+        identifier = str(int(time.time()))+"_"
+        identifier += args.add
+        if identifier[-1]!="_": identifier+="_"
+        for arg in vars(args):
+            if arg!="job" and arg!="add" and arg!="mdparams":
+                identifier+=arg+str(getattr(args, arg))+"_"
+        # Remove last underscore
+        if identifier[-1]=="_": identifier=identifier[:-1]
+        seed = np.random.randint(2**32-args.job)
+    else:
+        identifier = args.add
+        seed = args.job
+
     basepath, inipath, savepath, crpath, _ = utils.get_paths(gethostname())
     print "Data will be saved to: ", savepath
     print "With Identifier: ", identifier

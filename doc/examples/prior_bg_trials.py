@@ -77,7 +77,12 @@ parser.add_argument("--nsamples",
                     default=_nsamples, 
                     help="Number of samples, from IC40 to latest IC86"
                    )
-
+parser.add_argument("--mu", 
+                    dest="mu", 
+                    type=float, 
+                    default=0.,
+                    help="Setting mu has no effect in this script"
+                   )
 parser.add_argument("--burn", 
                     dest="burn", 
                     action="store_true" 
@@ -122,7 +127,7 @@ if __name__=="__main__":
         print("jobID {} too small, chose {} instead".format(args.job, _job))
         args.job = _job
 
-    if args.nsamples<=1 or args.nsamples>7:
+    if args.nsamples<1 or args.nsamples>7:
         print("Number of samples {} not in correct range, chose {} instead".format(args.nsamples, _nsamples))
         args.nsamples = _nsamples
 
@@ -140,13 +145,14 @@ if __name__=="__main__":
 
 
     # get the parameter args and get a string for saving later
+    no_identifier = ["job", "add", "mdparams"]
     if not "test" in args.add.lower():
         # Add time since epoch as additional unique label if we are not testing        
         identifier = str(int(time.time()))+"_"
         identifier += args.add
         if identifier[-1]!="_": identifier+="_"
         for arg in vars(args):
-            if arg!="job" and arg!="add" and arg!="mdparams":
+            if arg not in no_identifier:
                 identifier+=arg+str(getattr(args, arg))+"_"
         # Remove last underscore
         if identifier[-1]=="_": identifier=identifier[:-1]

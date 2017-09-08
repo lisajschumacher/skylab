@@ -31,7 +31,8 @@ logE_res = 0.1
 # fix seed to reproduce same results
 def set_seed(n):
     n = int(n)
-    seed=1+3+3+7+n
+    global seed
+    seed = 1+3+3+7+n
     np.random.seed(seed)
 
 def load_data(basepath, inipath, filename, shuffle_bool=True, burn=True):
@@ -246,7 +247,7 @@ def single_init(filename, basepath, inipath, **kwargs):
     else:
         injector = None
 
-    llh =  init(arr_exp = np.append(exp, sam) if (Nsrc > 0) else exp,
+    llh =  init(arr_exp = np.append(exp, sam[-1]) if (Nsrc > 0) else exp,
                     arr_mc = mc,
                     livetime = lt,
                     energy=energy,

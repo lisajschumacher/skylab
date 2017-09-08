@@ -260,18 +260,18 @@ class UhecrPriorGenerator(PriorGenerator):
 
         # set attributes which we want to have access to
         self.n_uhecr = len(ra)
-        self.energy = np.array(e_temp)[e_mask]
+        self.energy = energy
         return ra, dec, energy, sigma_reco
 
 # Testing
 if __name__=="__main__":
     import matplotlib.pyplot as plt
     from seaborn import cubehelix_palette
-    from test_utils import cmap
+    from ic_utils import cmap
     path = "/home/home2/institut_3b/lschumacher/phd_stuff/skylab_git/"
     t = UhecrPriorGenerator(5)
     template = t.calc_template(np.radians(6),
-                    t._get_UHECR_positions(100,
+                    t._get_UHECR_positions(85,
                     data_path="/home/home2/institut_3b/lschumacher/phd_stuff/phd_code_git/data"))
     print("Selected {} CRs".format(t.n_uhecr))
     print("Above energies of {} EeV".format(min(t.energy)))

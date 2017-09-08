@@ -129,7 +129,7 @@ if __name__=="__main__":
         print("jobID {} too small, chose {} instead".format(args.job, _job))
         args.job = _job
 
-    if args.nsamples<=1 or args.nsamples>7:
+    if args.nsamples<1 or args.nsamples>7:
         print("Number of samples {} not in correct range, chose {} instead".format(args.nsamples, _nsamples))
         args.nsamples = _nsamples
 
@@ -220,7 +220,8 @@ if __name__=="__main__":
     mins, secs = divmod(stop1 - start1, 60)
     hours, mins = divmod(mins, 60)
     print("Full scan finished after {2:2d}h {0:2d}m {1:2d}s".format(int(mins), int(secs), int(hours)))
-    print(best_hotspots)
+
+
     # Save the results
     savepath = os.path.join(savepath, identifier)
     utils.prepare_directory(savepath)

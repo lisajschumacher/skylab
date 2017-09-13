@@ -30,8 +30,9 @@ import numpy as np
 import numpy.lib.recfunctions
 import healpy as hp
 import scipy.interpolate
+# profiling
+from memory_profiler import profile
 
-#from skylab import utils
 from skylab import ps_injector
 
 class PriorInjector(ps_injector.PointSourceInjector):
@@ -118,7 +119,8 @@ class PriorInjector(ps_injector.PointSourceInjector):
 
         # Solid angle of selected events
         self._omega = 4. * np.pi
-        
+
+    @profile
     def fill(self, mc, livetime):
         r""" Fill injector with Monte Carlo events, selecting events
         around the source position.
@@ -223,6 +225,7 @@ class PriorInjector(ps_injector.PointSourceInjector):
             self._logging.warn("Maximal weight exceeds 10%: {0:.2%}".format(
                 self._norm_w.max()))
 
+    #~ @profile
     def sample(self, mean_mu, poisson=True):
         r""" Sample events for given source location.
 
@@ -305,7 +308,8 @@ class PriorInjector(ps_injector.PointSourceInjector):
                                     ps_injector.rotate_struct(sam_ev_i, s_ra, s_dec))
 
             yield num, sam_ev
-                        
+
+    #~ @profile
     def _get_source_positions(self, n):
         r""" Draw n source positions with (dec,ra) from the template map
         """

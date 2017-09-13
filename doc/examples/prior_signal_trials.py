@@ -198,7 +198,7 @@ if __name__=="__main__":
                         mode = "box")
 
     llh, injector = utils.startup(prior = tm, **startup_dict)
-
+    
     if injector==None:
         mu = None
     else:
@@ -209,6 +209,7 @@ if __name__=="__main__":
                         follow_up_factor = args.followupfactor,
                         pVal = pVal_func,
                         fit_gamma = 2.)
+                        
     start1 = time.time() 
     best_hotspots = llh.do_trials(prior = log_tm,
                         hemispheres = hemispheres,

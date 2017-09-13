@@ -148,8 +148,7 @@ if __name__=="__main__":
     # get the parameter args and get a string for saving later
     if not "test" in args.add.lower():
         # Add time since epoch as additional unique label if we are not testing        
-        identifier = str(int(time.time()))+"_"
-        identifier += args.add
+        identifier = args.add
         if identifier[-1]!="_": identifier+="_"
         for arg in vars(args):
             if arg!="job" and arg!="add":

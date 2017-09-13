@@ -31,7 +31,7 @@ import numpy.lib.recfunctions
 import healpy as hp
 import scipy.interpolate
 # profiling
-from memory_profiler import profile
+#~ from memory_profiler import profile
 
 from skylab import ps_injector
 
@@ -150,46 +150,35 @@ class PriorInjector(ps_injector.PointSourceInjector):
         self._setup()
 
         dtype = [
-            ("idx", np.int), ("enum", np.int),
-            ("trueE", np.float), ("trueDec", np.float), 
+            ("idx", np.int),
+            ("enum", np.int),
+            ("trueDec", np.float), 
             ("ow", np.float)
             ]
 
-        self.mc_arr = np.empty(0, dtype=dtype)
+        mc_numbers = dict()
+        N_tot = 0
+        for key, mc_i in mc.iteritems():
+            mc_numbers[key]=len(mc_i)
+            N_tot += mc_numbers[key]
+            
+        self.mc_arr = np.empty(N_tot, dtype=dtype)
 
-        self.mc = dict()
+        self.mc = mc
 
         if not isinstance(mc, dict):
             mc = {-1: mc}
             livetime = {-1: livetime}
-
-        for key, mc_i in mc.iteritems():
-            # Get MC events in the selected energy and sine declination range.
-
-            band_mask = np.logical_and(
-                mc_i["trueE"] / self.GeV > self.e_range[0],
-                mc_i["trueE"] / self.GeV < self.e_range[1])
-
-            if not np.any(band_mask):
-                self._logging.warn(
-                    "Sample {0:d}: no events were selected.".format(key))
-
-                self.mc[key] = mc_i[band_mask]
-
-                continue
-
-            self.mc[key] = mc_i[band_mask]
-
-            N = np.count_nonzero(band_mask)
-            mc_arr = np.empty(N, dtype=self.mc_arr.dtype)
-            mc_arr["idx"] = np.arange(N)
-            mc_arr["enum"] = key * np.ones(N)
-            mc_arr["ow"] = self.mc[key]["ow"] * livetime[key] * 86400.
-            mc_arr["trueE"] = self.mc[key]["trueE"]
-            mc_arr["trueDec"] = self.mc[key]["trueDec"]
-
-            self.mc_arr = np.append(self.mc_arr, mc_arr)
-
+            
+        cur_index = 0
+        for key in mc:
+            
+            N = mc_numbers[key]
+            self.mc_arr["idx"][cur_index:cur_index+N] = np.arange(N)
+            self.mc_arr["enum"][cur_index:cur_index+N] = key * np.ones(N)
+            self.mc_arr["ow"][cur_index:cur_index+N] = self.mc[key]["ow"] * self.mc[key]["trueE"]**(-self.gamma) / self._omega
+            self.mc_arr["trueDec"][cur_index:cur_index+N] = self.mc[key]["trueDec"]
+            cur_index += N
             self._logging.info(
                 "Sample {0}: selected {1:d} events".format(
                     key, N))
@@ -206,7 +195,6 @@ class PriorInjector(ps_injector.PointSourceInjector):
         r""" Setup weights for assuming a power-law flux.
         """
         # Weights given in days; weighted to the point source flux
-        self.mc_arr["ow"] *= self.mc_arr["trueE"]**(-self.gamma) / self._omega
         self._raw_flux = np.sum(self.mc_arr["ow"], dtype=np.float)
         self._norm_w = self.mc_arr["ow"] / self._raw_flux
         
@@ -309,7 +297,7 @@ class PriorInjector(ps_injector.PointSourceInjector):
 
             yield num, sam_ev
 
-    #~ @profile
+    @profile
     def _get_source_positions(self, n):
         r""" Draw n source positions with (dec,ra) from the template map
         """

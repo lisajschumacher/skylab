@@ -221,7 +221,6 @@ if __name__=="__main__":
     hours, mins = divmod(mins, 60)
     print("Full scan finished after {2:2d}h {0:2d}m {1:2d}s".format(int(mins), int(secs), int(hours)))
 
-
     # Save the results
     savepath = os.path.join(savepath, identifier)
     utils.prepare_directory(savepath)

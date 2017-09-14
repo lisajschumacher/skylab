@@ -51,6 +51,7 @@ class PriorLLHMixin(object):
         do_trials    
     """
     _logname = "MixIn"
+    #~ @profile
     def all_sky_scan(self, prior, nside=128, follow_up_factor=2,
                         hemispheres=None, pVal=None, **kwargs):
         r"""Scan the entire sky for single point sources.

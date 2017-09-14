@@ -120,7 +120,7 @@ class PriorInjector(ps_injector.PointSourceInjector):
         # Solid angle of selected events
         self._omega = 4. * np.pi
 
-    @profile
+    #~ @profile
     def fill(self, mc, livetime):
         r""" Fill injector with Monte Carlo events, selecting events
         around the source position.
@@ -297,7 +297,7 @@ class PriorInjector(ps_injector.PointSourceInjector):
 
             yield num, sam_ev
 
-    @profile
+    #~ @profile
     def _get_source_positions(self, n):
         r""" Draw n source positions with (dec,ra) from the template map
         """

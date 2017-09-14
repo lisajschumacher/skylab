@@ -292,10 +292,10 @@ class PointSourceLLH(basellh.BaseLLH):
         # alpha value in order to avoid divergences.
         aval = -1. + self._aval
         mask = alpha > aval
-        arel = (alpha[~mask] - aval) / self._aval
 
         ts[mask] = np.log1p(alpha[mask])
 
+        arel = (alpha[~mask] - aval) / self._aval
         ts[~mask] = np.log1p(aval) + arel - arel**2 / 2.
 
         ts = ts.sum()

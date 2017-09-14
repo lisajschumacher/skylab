@@ -64,8 +64,8 @@ def load_data(basepath, inipath, filename, shuffle_bool=True, burn=True):
         mc = np.load(join(basepath, filename+"_corrected_MC.npy"))
         
     mc = mc[mc["logE"] > 1.]
-    mc["ow"] = mc["ow"] * livetime * 86400.
     mc = mc[['ra', 'dec', 'logE', 'sigma', 'sinDec', 'trueRa', 'trueDec', 'trueE', 'ow']]
+    mc["ow"] = mc["ow"] * livetime * 86400.
     exp = np.load(join(basepath, filename+"_exp.npy"))
     exp = exp[['ra', 'logE', 'sigma', 'sinDec']]  # 'dec',
     exp = exp[exp["logE"] > 1.]

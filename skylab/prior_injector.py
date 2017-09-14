@@ -31,7 +31,7 @@ import numpy.lib.recfunctions
 import healpy as hp
 import scipy.interpolate
 # profiling
-from memory_profiler import profile
+#~ from memory_profiler import profile
 
 from skylab import ps_injector
 
@@ -120,7 +120,7 @@ class PriorInjector(ps_injector.PointSourceInjector):
         # Solid angle of selected events
         self._omega = 4. * np.pi
 
-    @profile
+    #~ @profile
     def fill(self, mc, livetime):
         r""" Fill injector with Monte Carlo events, selecting events
         around the source position.

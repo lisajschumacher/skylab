@@ -2,8 +2,11 @@
 *.py[ocd]
 *.swp
 figures/
+profiling/
 *.png
 *.log
 *.log~
 *.dat
+*.dat~
 *.o
+*.out

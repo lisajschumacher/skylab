@@ -155,7 +155,11 @@ class PriorInjector(ps_injector.PointSourceInjector):
             ("trueDec", np.float), 
             ("ow", np.float)
             ]
-
+            
+        if not isinstance(mc, dict):
+            mc = {-1: mc}
+            livetime = {-1: livetime}
+            
         mc_numbers = dict()
         N_tot = 0
         for key, mc_i in mc.iteritems():
@@ -165,10 +169,6 @@ class PriorInjector(ps_injector.PointSourceInjector):
         self.mc_arr = np.empty(N_tot, dtype=dtype)
 
         self.mc = mc
-
-        if not isinstance(mc, dict):
-            mc = {-1: mc}
-            livetime = {-1: livetime}
             
         cur_index = 0
         for key in mc:

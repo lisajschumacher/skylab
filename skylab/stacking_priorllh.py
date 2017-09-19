@@ -51,65 +51,76 @@ class PriorLLHMixin(object):
         do_trials    
     """
     _logname = "MixIn"
+    
+    def _add_injection(self, inject):
+	inject = numpy.lib.recfunctions.append_fields(
+	    inject, names="B", data=self.llh_model.background(inject),
+	    usemask=False)
+
+	self.exp = np.append(self.exp, inject)
+
+    def _remove_injection(self):
+	self.exp = self.exp[:self._nbase_events]
+    
     #~ @profile
     def all_sky_scan(self, prior, nside=128, follow_up_factor=2,
                         hemispheres=None, pVal=None, **kwargs):
         r"""Scan the entire sky for single point sources.
 
-		Perform an all-sky scan. First calculation is done on a coarse
-		grid with `nside`, follow-up scans are done with a finer
-		binning, while conserving the number of scan points by only
-		evaluating the most promising grid points.
-		
-		### New: ###
-		Add a spatial prior on the TS values already optimized for ns and gamma
-		Fit the hotspot on the prior-TS and return these results
-		-> the Prior selects the interesing region and pulls the spatial fit
-		### Stacking ###
-		Ability to repeat the calculation for different priors and add them all up
-		### --- ###
+	Perform an all-sky scan. First calculation is done on a coarse
+	grid with `nside`, follow-up scans are done with a finer
+	binning, while conserving the number of scan points by only
+	evaluating the most promising grid points.
+	
+	### New: ###
+	Add a spatial prior on the TS values already optimized for ns and gamma
+	Fit the hotspot on the prior-TS and return these results
+	-> the Prior selects the interesing region and pulls the spatial fit
+	### Stacking ###
+	Ability to repeat the calculation for different priors and add them all up
+	### --- ###
 
-		Parameters
-		----------
-		nside : int, optional
-				NSide value for initial HEALPy map; must be power of 2.
-		follow_up_factor : int, optional
-				Controls the grid size of following scans,
-				``nside *= 2**follow_up_factor``.
-		hemispheres : dict(str, tuple(float)), optional
-				Declination boundaries in radian of northern and southern
-				sky; by default, the horizon is at -5 degrees.
-		pVal : callable, optional
-				Calculates the p-value given the test statistic and
-				optionally sine declination of the source position; by
-				default the p-value is equal the test statistic. The p-value
-				must be monotonic increasing, because follow-up scans focus
-				on high values.
-				
-		Keyword arguments
-		-----------------
-		prior : array, length = hp.nside2npix(nside), optional
-				prior map to be added onto ts map, already log10 applied
-		alternatives :
-			pdec, pra, psig : floats, optional
-				give position and spread of a Gaussian prior,
-				which will be calculated in this function, if 'prior'
-				(see above) is not given
-				
-		Returns
-		-------
-		iterator
-				Structured array describing the scan result and mapping of
-				hemispheres to information about the hottest spot.
+	Parameters
+	----------
+	nside : int, optional
+			NSide value for initial HEALPy map; must be power of 2.
+	follow_up_factor : int, optional
+			Controls the grid size of following scans,
+			``nside *= 2**follow_up_factor``.
+	hemispheres : dict(str, tuple(float)), optional
+			Declination boundaries in radian of northern and southern
+			sky; by default, the horizon is at -5 degrees.
+	pVal : callable, optional
+			Calculates the p-value given the test statistic and
+			optionally sine declination of the source position; by
+			default the p-value is equal the test statistic. The p-value
+			must be monotonic increasing, because follow-up scans focus
+			on high values.
+			
+	Keyword arguments
+	-----------------
+	prior : array, length = hp.nside2npix(nside), optional
+			prior map to be added onto ts map, already log10 applied
+	alternatives :
+		pdec, pra, psig : floats, optional
+			give position and spread of a Gaussian prior,
+			which will be calculated in this function, if 'prior'
+			(see above) is not given
+			
+	Returns
+	-------
+	iterator
+			Structured array describing the scan result and mapping of
+			hemispheres to information about the hottest spot.
 
-		Examples
-		--------
-		In many cases, the test statistic is chi-square distributed.
+	Examples
+	--------
+	In many cases, the test statistic is chi-square distributed.
 
-		>>> def pVal(ts, sindec):
-		...     return -numpy.log10(0.5 * scipy.stats.chi2(2.).sf(ts))
+	>>> def pVal(ts, sindec):
+	...     return -numpy.log10(0.5 * scipy.stats.chi2(2.).sf(ts))
 
-		"""
+	"""
         logger = logging.getLogger(self._logname + ".all_sky_scan")
         logger.info("Parameters for fitting: "+str(self.params))
 
@@ -420,12 +431,16 @@ class PriorLLHMixin(object):
 
 		"""
         logger = logging.getLogger(self._logname+".do_trials")
-        """ To DO:
-        - injector
-        """
+	
         if mu is None:
             mu = itertools.repeat((0, None))
+
+	#~ inject = []
+	#~ ra_inj = np.zeros((n_iter, len(prior)))
+	#~ dec_inj = np.zeros((n_iter, len(prior)))
         inject = [mu.next() for i in range(n_iter)]
+	#~ for i in range(n_iter):
+	    #~ inject.append(mu.next())
 
         follow_up_factor = kwargs.pop("follow_up_factor", 2)
         hemispheres = kwargs.pop("hemispheres",
@@ -438,10 +453,13 @@ class PriorLLHMixin(object):
                                   dtype=[(p, np.float) for p in h_keys] 
                                   +[(p, np.float) for p in res_keys]
                                   +[("best", np.float)]
+				  #~ +[("ra_inj", np.float)]
+				  #~ +[("dec_inj", np.float)]
                                   +[("n_inj", np.float)])
 
         # all_sky_scan for every trial
         for i in range(n_iter):
+	    self._add_injection(inject[i][1])
             for scan_i, (_, hotspots) in enumerate(self.all_sky_scan(prior,
                                               hemispheres=hemispheres,
                                               follow_up_factor = follow_up_factor,
@@ -465,6 +483,7 @@ class PriorLLHMixin(object):
 
             # scramble experimental events after scan
             # Call the corresponding scramble method of super class
+	    self._remove_injection()
             super(PriorLLHMixin, self)._scramble_exp()
 
         return best_hotspots
@@ -485,44 +504,57 @@ class StackingPriorLLH(PriorLLHMixin, psLLH.PointSourceLLH):
     # value; see llh method.
     _aval = 1e-3
 
-class MultiStackingPriorLLH(PriorLLHMixin, psLLH.MultiPointSourceLLH):
-	r"""
-	PointSource and Base functionality,
-	slightly modified all-sky-scan (and working on event selection) (to do)
-	See PointSourceLLH and BaseLLh for more information
 
-	Handles multiple event samples that are distinct of each other.
+class MultiStackingPriorLLH(PriorLLHMixin, psLLH.MultiPointSourceLLH):
+    r"""
+    PointSource and Base functionality,
+    slightly modified all-sky-scan (and working on event selection) (to do)
+    See PointSourceLLH and BaseLLh for more information
+
+    Handles multiple event samples that are distinct of each other.
     Different samples have different effective areas that have to be
     taken into account for parting the number of expected neutrinos in
     between the different samples. Each sample is represented as an
     instance of `PointSourceLLH`.
+    """
+    def add_sample(self, name, llh):
+	r"""Add log-likelihood function object.
+
+	Parameters
+	-----------
+	name : str
+		Name of event sample
+	llh : StackingPriorLLH
+		Log-likelihood function using single event sample
+
 	"""
-	def add_sample(self, name, llh):
-		r"""Add log-likelihood function object.
+	if not isinstance(llh, StackingPriorLLH):
+		raise ValueError("'{0}' is not correct LLH-style".format(llh))
 
-		Parameters
-		-----------
-		name : str
-			Name of event sample
-		llh : StackingPriorLLH
-			Log-likelihood function using single event sample
+	names = self._enums.values()
 
-		"""
-		if not isinstance(llh, StackingPriorLLH):
-			raise ValueError("'{0}' is not correct LLH-style".format(llh))
-
-		names = self._enums.values()
-
-		if name in names:
-			enum = self._enums.keys()[names.index(name)]
-			logger = logging.getLogger(self._logname)
-			logger.warn("Overwrite {0:d} - {1}".format(enum, name))
+	if name in names:
+		enum = self._enums.keys()[names.index(name)]
+		logger = logging.getLogger(self._logname)
+		logger.warn("Overwrite {0:d} - {1}".format(enum, name))
+	else:
+		if len(names) > 0:
+			enum = max(self._enums) + 1
 		else:
-			if len(names) > 0:
-				enum = max(self._enums) + 1
-			else:
-				enum = 0
+			enum = 0
 
-		self._enums[enum] = name
-		self._samples[enum] = llh
+	self._enums[enum] = name
+	self._samples[enum] = llh
 
+    def _add_injection(self, inject):
+	for enum in self._samples:
+            if isinstance(inject, dict):
+                events = inject.pop(enum, None)
+            else:
+                events = inject
+
+            self._samples[enum]._add_injection(inject=events)
+
+    def _remove_injection(self):
+	for enum in self._samples:
+            self._samples[enum]._remove_injection()

@@ -189,19 +189,20 @@ def multi_init(n, basepath, inipath, **kwargs):
                                         n_uhecr=n_uhecr,
                                         seed=np.random.randint(2**32))
             injector.fill(mcdict, ltdict)
-            sam = injector.sample(Nsrc, poisson=True).next()[1]
+            #sam = injector.sample(Nsrc, poisson=True).next()[1]
         else:
             src_dec = kwargs.pop("src_dec", 0.)
             src_ra = kwargs.pop("src_ra", np.pi/2.)
             injector = PointSourceInjector(src_gamma, sinDec_bandwidth=1, seed=np.random.randint(2**32))
             injector.fill(src_dec, mcdict, ltdict)
-            sam = injector.sample(src_ra, Nsrc, poisson=True).next()[1]
+            #sam = injector.sample(src_ra, Nsrc, poisson=True).next()[1]
     else:
         injector = None
 
     max_key = max(mcdict.keys())
     for i in xrange(n):    
-        llh_i =  init(arr_exp = np.append(expdict[i], sam[i]) if (Nsrc > 0) else expdict[i],
+        #llh_i =  init(arr_exp = np.append(expdict[i], sam[i]) if (Nsrc > 0) else expdict[i],
+        llh_i =  init(expdict[i],
                         arr_mc = mcdict[min(i,max_key)],
                         livetime = ltdict[i],
                         energy=energy,

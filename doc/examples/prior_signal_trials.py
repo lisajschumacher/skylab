@@ -209,7 +209,7 @@ if __name__=="__main__":
                         follow_up_factor = args.followupfactor,
                         pVal = pVal_func,
                         fit_gamma = 2.)
-                        
+    #~ if False:                    
     start1 = time.time() 
     best_hotspots = llh.do_trials(prior = log_tm,
                         hemispheres = hemispheres,
@@ -220,7 +220,8 @@ if __name__=="__main__":
     mins, secs = divmod(stop1 - start1, 60)
     hours, mins = divmod(mins, 60)
     print("Full scan finished after {2:2d}h {0:2d}m {1:2d}s".format(int(mins), int(secs), int(hours)))
-
+    print(best_hotspots.dtype.names)
+    print(best_hotspots[['n_inj', 'best']])
     # Save the results
     savepath = os.path.join(savepath, identifier)
     utils.prepare_directory(savepath)

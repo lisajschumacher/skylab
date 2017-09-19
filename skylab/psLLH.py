@@ -100,6 +100,7 @@ class PointSourceLLH(basellh.BaseLLH):
             logger.warn("Working on >> UNBLINDED << data.")
 
         self.exp = exp
+        self._nbase_events = self.exp.size
         self.livetime = livetime
         self.set_llh_model(llh_model, mc=mc)
 

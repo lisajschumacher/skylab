@@ -202,7 +202,7 @@ if __name__=="__main__":
     if injector==None:
         mu = None
     else:
-        mu = injector.sample(args.mu, poisson=True)
+        mu = injector.sample(args.mu, poisson=True, position=True)
 
     trials_dict = dict(n_iter = args.niter, 
                         nside = nside,
@@ -221,7 +221,7 @@ if __name__=="__main__":
     hours, mins = divmod(mins, 60)
     print("Full scan finished after {2:2d}h {0:2d}m {1:2d}s".format(int(mins), int(secs), int(hours)))
     print(best_hotspots.dtype.names)
-    print(best_hotspots[['n_inj', 'best']])
+    print(best_hotspots[['ra', 'ra_inj', 'dec', 'dec_inj']])
     # Save the results
     savepath = os.path.join(savepath, identifier)
     utils.prepare_directory(savepath)

@@ -439,8 +439,6 @@ class PriorLLHMixin(object):
 	#~ ra_inj = np.zeros((n_iter, len(prior)))
 	#~ dec_inj = np.zeros((n_iter, len(prior)))
         inject = [mu.next() for i in range(n_iter)]
-	#~ for i in range(n_iter):
-	    #~ inject.append(mu.next())
 
         follow_up_factor = kwargs.pop("follow_up_factor", 2)
         hemispheres = kwargs.pop("hemispheres",
@@ -453,8 +451,8 @@ class PriorLLHMixin(object):
                                   dtype=[(p, np.float) for p in h_keys] 
                                   +[(p, np.float) for p in res_keys]
                                   +[("best", np.float)]
-				  #~ +[("ra_inj", np.float)]
-				  #~ +[("dec_inj", np.float)]
+				  +[("ra_inj", np.float)]
+				  +[("dec_inj", np.float)]
                                   +[("n_inj", np.float)])
 
         # all_sky_scan for every trial
@@ -469,6 +467,8 @@ class PriorLLHMixin(object):
                     # break after first follow up
                     break
             best_hotspots["n_inj"][i] = inject[i][0]
+            best_hotspots["ra_inj"][i] = inject[i][2]
+            best_hotspots["dec_inj"][i] = inject[i][3]
             for h_i,hspots in enumerate(hotspots):
                 for hk in h_keys:
                     best_hotspots[hk][i][h_i] = hspots[hk]["best"]["TS"]

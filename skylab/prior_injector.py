@@ -214,7 +214,7 @@ class PriorInjector(ps_injector.PointSourceInjector):
                 self._norm_w.max()))
 
     #~ @profile
-    def sample(self, mean_mu, poisson=True):
+    def sample(self, mean_mu, poisson=True, position=False):
         r""" Sample events for given source location.
 
         Parameters
@@ -295,7 +295,10 @@ class PriorInjector(ps_injector.PointSourceInjector):
                     sam_ev[enum] = np.append(sam_ev[enum],
                                     ps_injector.rotate_struct(sam_ev_i, s_ra, s_dec))
 
-            yield num, sam_ev
+            if position:
+                yield num, sam_ev, src_ra, src_dec
+            else:
+                yield num, sam_ev
 
     #~ @profile
     def _get_source_positions(self, n):

@@ -53,10 +53,11 @@ class PriorLLHMixin(object):
     _logname = "MixIn"
     
     def _add_injection(self, inject):
+	print(inject)
 	inject = numpy.lib.recfunctions.append_fields(
 	    inject, names="B", data=self.llh_model.background(inject),
 	    usemask=False)
-
+	
 	self.exp = np.append(self.exp, inject)
 
     def _remove_injection(self):
@@ -435,9 +436,6 @@ class PriorLLHMixin(object):
         if mu is None:
             mu = itertools.repeat((0, None))
 
-	#~ inject = []
-	#~ ra_inj = np.zeros((n_iter, len(prior)))
-	#~ dec_inj = np.zeros((n_iter, len(prior)))
         inject = [mu.next() for i in range(n_iter)]
 
         follow_up_factor = kwargs.pop("follow_up_factor", 2)
@@ -457,7 +455,12 @@ class PriorLLHMixin(object):
 
         # all_sky_scan for every trial
         for i in range(n_iter):
-	    self._add_injection(inject[i][1])
+	    if mu is not None and inject[i][1] is not None:
+		self._add_injection(inject[i][1])
+		best_hotspots["n_inj"][i] = inject[i][0]
+		best_hotspots["ra_inj"][i] = inject[i][2]
+		best_hotspots["dec_inj"][i] = inject[i][3]
+		
             for scan_i, (_, hotspots) in enumerate(self.all_sky_scan(prior,
                                               hemispheres=hemispheres,
                                               follow_up_factor = follow_up_factor,
@@ -466,9 +469,7 @@ class PriorLLHMixin(object):
                 if scan_i > 0:
                     # break after first follow up
                     break
-            best_hotspots["n_inj"][i] = inject[i][0]
-            best_hotspots["ra_inj"][i] = inject[i][2]
-            best_hotspots["dec_inj"][i] = inject[i][3]
+            
             for h_i,hspots in enumerate(hotspots):
                 for hk in h_keys:
                     best_hotspots[hk][i][h_i] = hspots[hk]["best"]["TS"]
@@ -481,9 +482,11 @@ class PriorLLHMixin(object):
                     for p in res_keys:
                         best_hotspots[p][i][h_i] = hspots[h_keys[0]]["best"][p]
 
-            # scramble experimental events after scan
+	    # Remove injected events and then
+            # scramble these events after scan
             # Call the corresponding scramble method of super class
-	    self._remove_injection()
+	    if mu is not None and inject[i][1] is not None: 
+		self._remove_injection()
             super(PriorLLHMixin, self)._scramble_exp()
 
         return best_hotspots

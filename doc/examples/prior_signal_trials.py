@@ -220,8 +220,9 @@ if __name__=="__main__":
     mins, secs = divmod(stop1 - start1, 60)
     hours, mins = divmod(mins, 60)
     print("Full scan finished after {2:2d}h {0:2d}m {1:2d}s".format(int(mins), int(secs), int(hours)))
-    print(best_hotspots.dtype.names)
-    print(best_hotspots[['ra', 'ra_inj', 'dec', 'dec_inj']])
+    if "test" in args.add.lower():
+        print(best_hotspots.dtype.names)
+        print(best_hotspots[['ra', 'ra_inj', 'dec', 'dec_inj']])
     # Save the results
     savepath = os.path.join(savepath, identifier)
     utils.prepare_directory(savepath)

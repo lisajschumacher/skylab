@@ -195,6 +195,7 @@ class PriorInjector(ps_injector.PointSourceInjector):
         r""" Setup weights for assuming a power-law flux.
         """
         # Weights given in days; weighted to the point source flux
+        # ow is here already ["ow"] * livetime(s) * ["trueE"]**(-self.gamma) / self._omega
         self._raw_flux = np.sum(self.mc_arr["ow"], dtype=np.float)
         self._norm_w = self.mc_arr["ow"] / self._raw_flux
         

@@ -53,7 +53,7 @@ class PriorLLHMixin(object):
     _logname = "MixIn"
     
     def _add_injection(self, inject):
-	print(inject)
+	# print(inject)
 	inject = numpy.lib.recfunctions.append_fields(
 	    inject, names="B", data=self.llh_model.background(inject),
 	    usemask=False)

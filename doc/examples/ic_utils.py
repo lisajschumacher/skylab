@@ -17,7 +17,7 @@ from seaborn import cubehelix_palette, set_palette
 # Cubehelix palettes have a gradient in color and lightness/darkness
 # Makes them look nice in in both color and gray-scale prints 
 '''
-colors = cubehelix_palette(6, start=.5, rot=-1.1, dark=0.15, light=0.7, reverse=True, hue=2)
+colors = cubehelix_palette(4, start=.5, rot=-1.1, dark=0.15, light=0.7, reverse=True, hue=2)
 cmap = cubehelix_palette(as_cmap=True, start=.5, rot=-0.9, dark=0., light=0.9, reverse=True, hue=1)
 cmap.set_under("black")
 cmap.set_bad("white")
@@ -29,8 +29,9 @@ set_palette(colors)
 linestyles = ["-", "--", ":"]
 markers = ["o", "s", "d"]
 
-tw = 8
-
+tw = 6
+fontsize = 15
+scaler = 1
 logging.basicConfig(level=logging.WARN)
 
 def startup(basepath, inipath, seed=0, multi=False, n_samples=2, **kwargs):
@@ -70,7 +71,6 @@ def plotting(backend="QT4Agg"):
     mpl.rcdefaults()
     rcParams = dict()
     # ... better set backend as rcParam
-    fontsize=15
     rcParams["backend"] = backend
     rcParams["font.size"] = fontsize
     rcParams["font.family"] = "serif"
@@ -84,11 +84,11 @@ def plotting(backend="QT4Agg"):
     # Prop_cycle is new in Matplotlib 2.0
     rcParams["axes.prop_cycle"] = (cycler("color", colors*len(linestyles))
                                    + cycler("linestyle", linestyles*len(colors)))
-    rcParams["axes.labelsize"] = fontsize
-    rcParams["axes.titlesize"] = fontsize
+    rcParams["axes.labelsize"] = int(fontsize*scaler)
+    rcParams["axes.titlesize"] = int(fontsize*scaler)
     rcParams["axes.grid"] = True
-    rcParams["xtick.labelsize"] = fontsize
-    rcParams["ytick.labelsize"] = fontsize
+    rcParams["xtick.labelsize"] = int(fontsize*scaler)
+    rcParams["ytick.labelsize"] = int(fontsize*scaler)
 
     rcParams['figure.subplot.bottom'] = 0.15 # Abstand von unterem Plot Ende bis zum Rand des Bildes - nuetzlich um Achsenbeschriftung nach oben zu schieben undgroesser zu machen
     rcParams['figure.subplot.wspace'] = 0.15
@@ -286,3 +286,19 @@ def plot_effective_area(mc, sinDec_range=(-1, 1), bins=[25,40], nFig=1, figsize=
     cbar_ax = fig.add_axes([0.82, 0.47, 0.025, 0.4])
     fig.colorbar(im,cax=cbar_ax, ticks=[1e-3, 1e-1, 1e1, 1e3]).set_label(r"$\log_{10}(A_{eff}/ \mathrm{m}^2)$")
     return fig, ax0, hist, logEEdges, sinDecEdges, spline_logE_sinDec
+
+def angular_distance(x1, x2):
+    """ 
+    Compute the angular distance between 2 vectors on a unit sphere
+    Parameters :
+        x1/2: Vector with [declination, right-ascension], i.e.
+              shape (2,n) where n can also be zero. One can compute
+              the distance for n pairs of vectors
+    Return :
+        cosine of angular distance, in order to get the angular
+        distance in rad, take arccos of result
+    """
+    x1=np.array(x1)
+    x2=np.array(x2)
+    assert(len(x1)==len(x2)==2)
+    return np.sin(x1[0]) * np.sin(x2[0]) + np.cos(x1[0]) * np.cos(x2[0]) * np.cos(x1[1]-x2[1])

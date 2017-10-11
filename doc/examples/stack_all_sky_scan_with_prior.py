@@ -1,14 +1,19 @@
+#!/bin/env python
+
 # -*-coding:utf8-*-
 
 import os
 import logging
+import time
 from socket import gethostname
 from argparse import ArgumentParser
+import cPickle as pickle
 
 # scipy
 from scipy.stats import chi2
 import healpy as hp
 import numpy as np
+import numpy.lib.recfunctions
 
 # skylab
 from skylab.psLLH import MultiPointSourceLLH
@@ -19,7 +24,6 @@ from skylab.prior_injector import PriorInjector
 # sorry but I had to change the names
 # this is too confusing for me and the interpreter :D
 import ic_utils as utils
-
 
 level=logging.INFO
 logging.getLogger("skylab.psLLH.PointSourceLLH").setLevel(level)
@@ -36,13 +40,37 @@ label = dict(TS=r"$\mathcal{TS}$",
              gamma=r"$\gamma$",
              )
 pVal_func = None
-_nsideparam = 4
+_niter = 10
+_job = 0
+_nsideparam = 6
 _followupfactor = 2
-_burn = True
-_nsamples = 2
-
+_burn = False
+_nsamples = 7
+_mdparams = [6.]
+_ecut = 70
+_mu = 3.0
 
 parser = ArgumentParser()
+
+parser.add_argument("--job", 
+                    dest="job", 
+                    type=int, 
+                    default=_job
+                    )
+
+parser.add_argument("--niter", 
+                    dest="niter", 
+                    type=int, 
+                    default=_niter,
+                    help="Number of trial iterations"
+                   )
+
+parser.add_argument("--mu", 
+                    dest="mu", 
+                    type=float, 
+                    default=_mu,
+                    help="Mean number of neutrinos per source, 0 will lead to background trials"
+                   )
 
 parser.add_argument("--nsideparam", 
                     dest="nsideparam", 
@@ -82,11 +110,33 @@ parser.add_argument("--add",
                     help="Additional string for saving path"
                    )
 
+parser.add_argument("--ecut", 
+                    dest="ecut", 
+                    type=int, 
+                    default=_ecut, 
+                    help="Cut on UHECR energy in EeV"
+                   )
+
+parser.add_argument("--mdparams", 
+                    dest="mdparams",
+                    type=float,
+                    default=_mdparams, 
+                    help="Magnetic deflection parameter, should range between 3 and 9 degree"
+                   )
+
 if __name__=="__main__":
 
     args = parser.parse_args()
 
-    if args.nsamples<=1 or args.nsamples>7:
+    if args.niter<1:
+        print("number of iterations {} too small, chose {} instead".format(args.niter, _niter))
+        args.niter = _niter
+
+    if args.job<0:
+        print("jobID {} too small, chose {} instead".format(args.job, _job))
+        args.job = _job
+
+    if args.nsamples<1 or args.nsamples>7:
         print("Number of samples {} not in correct range, chose {} instead".format(args.nsamples, _nsamples))
         args.nsamples = _nsamples
 
@@ -98,28 +148,36 @@ if __name__=="__main__":
         print("follow_up_factor {} not in correct range, chose {} instead".format(args.followupfactor, _followupfactor))
         args.followupfactor = _followupfactor
 
-    # get the parameter args and get a string for saving later
-    identifier=args.add
-    if identifier[-1]!="_": identifier+="_"
-    for arg in vars(args):
-        if arg!="job" and arg!="add":
-            identifier+=arg+str(getattr(args, arg))+"_"
-    if identifier[-1]=="_": identifier=identifier[:-1] #remove last underscore
+    if args.ecut<0 or args.ecut>180:
+        print("ecut {} not in correct range, chose {} instead".format(args.ecut, _ecut))
+        args.ecut = _ecut
 
-    basepath, inipath, savepath, crpath, figurepath= utils.get_paths(gethostname())
+    # get the parameter args and get a string for saving later
+    if not "test" in args.add.lower():
+        # Add time since epoch as additional unique label if we are not testing        
+        identifier = args.add
+        if identifier[-1]!="_": identifier+="_"
+        for arg in vars(args):
+            if arg!="job" and arg!="add":
+                identifier+=arg+str(getattr(args, arg))+"_"
+        # Remove last underscore
+        if identifier[-1]=="_": identifier=identifier[:-1]
+        seed = np.random.randint(2**32-args.job)
+    else:
+        identifier = args.add
+        seed = args.job
+        
+    basepath, inipath, savepath, crpath, figurepath = utils.get_paths(gethostname())
     print "Data will be saved to: ", savepath
     print "With Identifier: ", identifier
 
     hemispheres = dict(North = np.radians([-5., 90.]), South = np.radians([-90., -5.]))
     nside = 2**args.nsideparam
-    backend = "svg"
-    extension = "_with_hotspots.png"
-    mark_hotspots = True
-    Nsrc = 0
+    mark_hotspots = False
+    mark_injected = True
+    plot_single = False
+    extension = "_multi_with_hotspots.png"
     
-    plt = utils.plotting(backend=backend)
-
-    # Other stuff
     if "physik.rwth-aachen.de" in gethostname():
         ncpu = 4
     else:
@@ -127,48 +185,42 @@ if __name__=="__main__":
 
     # Generate several templates for prior fitting
     # One for each deflection hypothesis each
-    md_params = [6.]
     pg = UhecrPriorGenerator(args.nsideparam)
-    log_tm = []
-    tm = []
-    for md in md_params:
-        temp = pg.calc_template(np.radians(md), pg._get_UHECR_positions(120, crpath))
-        log_tm.extend(temp)
-        temp = np.exp(temp)
-        tm.extend(temp/temp.sum(axis=1)[np.newaxis].T)
-    log_tm = np.array(log_tm)
-    tm = np.array(tm)
+    log_tm = pg.calc_template(np.radians(args.mdparams), pg._get_UHECR_positions(args.ecut, crpath))
+    temp = np.exp(log_tm)
+    tm = temp/temp.sum(axis=1)[np.newaxis].T
     energies = pg.energy
     
     startup_dict = dict(basepath = basepath,
                         inipath = inipath,
-                        seed = 0,
-                        Nsrc = 0, ### Background ###
+                        seed = seed,
+                        Nsrc = args.mu, ### Signal ###
                         fixed_gamma = True,
                         add_prior = True,
                         src_gamma = 2.,
                         fit_gamma = 2.,
                         multi = True if args.nsamples>1 else False,
                         n_uhecr = pg.n_uhecr,
-                        # prior = tm1, # not needed for Background
                         nside_param = args.nsideparam,
                         burn = args.burn,
                         ncpu = ncpu,
                         n_samples = args.nsamples,
                         mode = "box")
 
-    llh, injector = utils.startup(**startup_dict)
+    llh, injector = utils.startup(prior = tm, **startup_dict)
     
     if injector==None:
         mu = None
     else:
-        mu = injector.sample(Nsrc, poisson=True)
+        num, mu, src_ra, src_dec = injector.sample(args.mu, poisson=True, position=True).next()
 
-    scan_dict = dict(mu = mu,  
-                        nside = nside,
+    scan_dict = dict(nside = nside,
                         follow_up_factor = args.followupfactor,
                         pVal = pVal_func,
                         fit_gamma = 2.)
+
+    if mu is not None:
+		llh._add_injection(mu)
     # iterator of all-sky scan with follow up scans of most interesting points
     for i, (scan, hotspots) in enumerate(llh.all_sky_scan(hemispheres=hemispheres,
                                 prior=log_tm,
@@ -184,11 +236,11 @@ if __name__=="__main__":
     eps = 1.
     # Custom colormap using cubehelix from seaborn, see utils
     cmap = utils.cmap
-
+    plt = utils.plotting("svg")
     # Looking at the hotspots and separating them into North and South
     hk = hemispheres.keys()
     print "Hemisphere keys:", hk
-    best_hotspots = np.zeros(pg.n_uhecr*len(md_params),
+    best_hotspots = np.zeros(pg.n_uhecr,
                              dtype=[(p, np.float) for p in hk]
                                                 +[("best", np.float)]
                                                 +[("dec", np.float)]
@@ -233,21 +285,21 @@ if __name__=="__main__":
                                rasterized=True)
         if mark_hotspots:
             for bhi in best_hotspots:
-                ax.scatter(np.pi - bhi["ra"], bhi["dec"], 20,
-                       marker="o",
-                       color="cyan",
-                       alpha=0.25,
-                       label="Hotspot fit")
-            if Nsrc>0:
-                ax.scatter(np.pi - injector._src_ra, injector._src_dec, 20,
-                           marker="d",
-                           color="orange",
-                           alpha=0.25,
-                           label="Injected")
+                ax.scatter(np.pi - bhi["ra"], bhi["dec"], 1200,
+                            marker="d",
+                            facecolor='none',
+                            edgecolors='orange',
+                            label="Hotspot fit")
+        if mark_injected and args.mu>0:
+            ax.scatter(np.pi - src_ra, src_dec, 1200,
+                        marker="o",
+                        facecolor='none',
+                        edgecolors='cyan',
+                        label="Injected")
         fig.savefig(figurepath+"/skymap_" + key + extension, dpi=256)
         plt.close("all")
     # Now we look at the single results:
-    if True:
+    if plot_single:
         c=0
         key="postTS"
         for i,s in enumerate(llh.postTS):
@@ -262,19 +314,50 @@ if __name__=="__main__":
                                    rasterized=True)
             if mark_hotspots:
                 for bhi in best_hotspots:
-                    ax.scatter(np.pi - bhi["ra"], bhi["dec"], 20,
-                           marker="o",
-                           color="cyan",
-                           alpha=0.25,
-                           label="Hotspot fit")
-                if Nsrc>0:
-                    ax.scatter(np.pi - injector._src_ra, injector._src_dec, 20,
-                               marker="d",
-                               color="orange",
-                               alpha=0.25,
-                               label="Injected")
+                    ax.scatter(np.pi - bhi["ra"], bhi["dec"], 1200,
+                                marker="d",
+                                facecolor='none',
+                                edgecolors='orange',
+                                label="Hotspot fit")
+            if mark_injected and args.mu>0:
+                ax.scatter(np.pi - src_ra, src_dec, 1200,
+                            marker="o",
+                            facecolor='none',
+                            edgecolors='cyan',
+                            label="Injected")
             fig.savefig(figurepath+"/skymap_postTS_" + str(c) + extension, dpi=256)
             plt.close("all")
             c+=1
+    else:
+        key="postTS"
+        pTS = []
+        for i,s in enumerate(llh.postTS):
+            pTS.append(s)
+        s=np.array(pTS).sum(axis=0)
+        vmin, vmax = np.percentile(s, [0., 100.])
+        vmin = np.floor(max(0, vmin))
+        vmax = min(8, np.ceil(vmax))
+        q = np.ma.masked_array(s)
+        q.mask = np.zeros_like(q, dtype=np.bool)
+        fig, ax = utils.skymap(plt, q, cmap=cmap,
+                               vmin=vmin, vmax=vmax,
+                               colorbar=dict(title=label[key]),
+                               rasterized=True)
+        if mark_hotspots:
+            for bhi in best_hotspots:
+                ax.scatter(np.pi - bhi["ra"], bhi["dec"], 1200,
+                            marker="d",
+                            facecolor='none',
+                            edgecolors='orange',
+                            label="Hotspot fit")
+        if mark_injected and args.mu>0:
+            ax.scatter(np.pi - src_ra, src_dec, 1200,
+                        marker="o",
+                        facecolor='none',
+                        edgecolors='cyan',
+                        label="Injected")
+        fig.savefig(figurepath+"/skymap_postTS_full" + extension, dpi=256)
+        plt.close("all")
+        
 
             

@@ -267,12 +267,37 @@ class UhecrPriorGenerator(PriorGenerator):
 if __name__=="__main__":
     import matplotlib.pyplot as plt
     from seaborn import cubehelix_palette
-    from ic_utils import cmap
-    path = "/home/home2/institut_3b/lschumacher/phd_stuff/skylab_git/"
+    from ic_utils import cmap, get_paths
+    from argparse import ArgumentParser
+    from socket import gethostname
+    from os.path import join
+
+    parser = ArgumentParser()
+
+    parser.add_argument("--ecut", 
+                        dest="ecut", 
+                        type=int, 
+                        default=120
+                        )
+
+    parser.add_argument("--md", 
+                        dest="md", 
+                        type=int, 
+                        default=6
+                        )
+    parser.add_argument("--n", 
+                        dest="n", 
+                        type=int, 
+                        default=1
+                        )
+
+    args = parser.parse_args()
+    
+    basepath, inipath, savepath, crpath, figurepath = get_paths(gethostname())
     t = UhecrPriorGenerator(5)
-    template = t.calc_template(np.radians(6),
-                    t._get_UHECR_positions(85,
-                    data_path="/home/home2/institut_3b/lschumacher/phd_stuff/phd_code_git/data"))
+    template = t.calc_template(np.radians(args.md),
+                    t._get_UHECR_positions(args.ecut,
+                    data_path=crpath))#"/home/home2/institut_3b/lschumacher/phd_stuff/phd_code_git/data"))
     print("Selected {} CRs".format(t.n_uhecr))
     print("Above energies of {} EeV".format(min(t.energy)))
     
@@ -284,7 +309,7 @@ if __name__=="__main__":
     hp.projtext(np.pi/2, 0.01, r"$0^\circ$", color="w", ha="right")
     hp.projtext(np.pi/2, -0.01, r"$360^\circ$", color="w")
     hp.projtext(np.pi/2, np.pi, r"$180^\circ$", color="w")
-    plt.savefig(path+"figures/full_test_template.png")
+    plt.savefig(join(figurepath, "full_test_template.png"))
     fig = plt.figure(7)
     tm = np.exp(template)
     tm = tm.sum(axis=0)
@@ -292,14 +317,14 @@ if __name__=="__main__":
     hp.projtext(np.pi/2, 0.01, r"$0^\circ$", color="w", ha="right")
     hp.projtext(np.pi/2, -0.01, r"$360^\circ$", color="w")
     hp.projtext(np.pi/2, np.pi, r"$180^\circ$", color="w")
-    plt.savefig(path+"figures/full_log_test_template.png")
+    plt.savefig(join(figurepath, "full_log_test_template.png"))
     
-   
-    for i,tm in enumerate(template[:3]):
-        fig = plt.figure(i)
-        hp.mollview(tm, fig=i, cmap=cmap, rot=[180,0,0], min=-20)
-        hp.projtext(np.pi/2, 0.01, r"$0^\circ$", color="w", ha="right")
-        hp.projtext(np.pi/2, -0.01, r"$360^\circ$", color="w")
-        hp.projtext(np.pi/2, np.pi, r"$180^\circ$", color="w")
-        plt.savefig(path+"figures/"+str(i)+"_test_template.png")
+    if args.n>0:
+        for i,tm in enumerate(template[:args.n]):
+            fig = plt.figure(i)
+            hp.mollview(tm, fig=i, cmap=cmap, rot=[180,0,0], min=-20)
+            hp.projtext(np.pi/2, 0.01, r"$0^\circ$", color="w", ha="right")
+            hp.projtext(np.pi/2, -0.01, r"$360^\circ$", color="w")
+            hp.projtext(np.pi/2, np.pi, r"$180^\circ$", color="w")
+            plt.savefig(join(figurepath, str(i)+"_test_template.png"))
 

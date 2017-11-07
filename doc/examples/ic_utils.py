@@ -11,13 +11,20 @@ import ic_data
 from matplotlib import gridspec
 from matplotlib.colors import LogNorm
 
-from seaborn import cubehelix_palette, set_palette
+from seaborn import cubehelix_palette, color_palette, set_palette
 '''
 # Custom colors and colormaps using seaborn
 # Cubehelix palettes have a gradient in color and lightness/darkness
 # Makes them look nice in in both color and gray-scale prints 
 '''
-colors = cubehelix_palette(4, start=.5, rot=-1.1, dark=0.15, light=0.7, reverse=True, hue=2)
+# colors = cubehelix_palette(4, start=.5, rot=-1.1, dark=0.15, light=0.7, reverse=True, hue=2)
+# These are RWTH colors
+colors = color_palette([(0, 58./256., 111./256.),
+                        (246./256., 168./256.,  0),
+                        (97./256., 33./256., 88./256.),
+                        (87./256., 171./256., 39./256.),
+                        (204./256., 7./256., 30./256.),
+                        (0, 152./256., 161./256.)])
 cmap = cubehelix_palette(as_cmap=True, start=.5, rot=-0.9, dark=0., light=0.9, reverse=True, hue=1)
 cmap.set_under("black")
 cmap.set_bad("white")
@@ -83,7 +90,9 @@ def plotting(backend="QT4Agg"):
     rcParams["figure.autolayout"] = True
     # Prop_cycle is new in Matplotlib 2.0
     rcParams["axes.prop_cycle"] = (cycler("color", colors*len(linestyles))
-                                   + cycler("linestyle", linestyles*len(colors)))
+                                   + cycler("linestyle", linestyles*len(colors))
+                                   + cycler("marker", markers*len(colors))
+                                  )
     rcParams["axes.labelsize"] = int(fontsize*scaler)
     rcParams["axes.titlesize"] = int(fontsize*scaler)
     rcParams["axes.grid"] = True
@@ -147,7 +156,7 @@ def skymap(plt, vals, **kwargs):
 
 def get_paths(hostname):
     r""" Set paths depending on hostname
-    Returns : basepath, inipath, savepath, crpath
+    Returns : basepath, inipath, savepath, crpath, figurepath
     """
     if "physik.rwth-aachen.de" in hostname:
         basepath="/net/scratch_icecube4/user/lschumacher/projects/data/ps_sample/coenders_pub"

@@ -53,7 +53,12 @@ class PriorLLHMixin(object):
     _logname = "MixIn"
     
     def _add_injection(self, inject):
-	# print(inject)
+	if isinstance(inject, dict):
+	    """
+            if inject is still a dict, we are working with a single sample
+	    Then, just take the content of the first (and only) key
+	    """
+	    inject = inject[inject.keys()[0]]
 	inject = numpy.lib.recfunctions.append_fields(
 	    inject, names="B", data=self.llh_model.background(inject),
 	    usemask=False)

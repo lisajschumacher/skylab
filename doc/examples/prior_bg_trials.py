@@ -41,6 +41,7 @@ _burn = False
 _nsamples = 7
 _mdparams = [3.,6.]
 _ecut = 70
+_he_cut = False
 
 parser = ArgumentParser()
 
@@ -92,6 +93,12 @@ parser.add_argument("--full",
                     action="store_false" 
                    )
 parser.set_defaults(burn=_burn)
+
+parser.add_argument("--he_cut", 
+                    dest="he_cut", 
+                    action="store_true" 
+                   )
+parser.set_defaults(he_cut=_he_cut)
 
 parser.add_argument("--add", 
                     dest="add", 
@@ -204,7 +211,9 @@ if __name__=="__main__":
                         burn = args.burn,
                         ncpu = ncpu,
                         n_samples = args.nsamples,
-                        mode = "box")
+                        mode = "box",
+                        he_cut = args.he_cut
+                       )
 
     llh, injector = utils.startup(**startup_dict)
 

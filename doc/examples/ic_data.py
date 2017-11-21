@@ -35,7 +35,7 @@ def set_seed(n):
     seed = 1+3+3+7+n
     np.random.seed(seed)
 
-def load_data(basepath, inipath, filename, shuffle_bool=True, burn=True):
+def load_data(basepath, inipath, filename, shuffle_bool=True, burn=True, he_cut=False):
     """ 
     shuffle_bool: do or do not shuffle experimental data
                                 (currently setting to false has no effect)
@@ -69,6 +69,11 @@ def load_data(basepath, inipath, filename, shuffle_bool=True, burn=True):
     exp = np.load(join(basepath, filename+"_exp.npy"))
     exp = exp[['ra', 'logE', 'sigma', 'sinDec']]  # 'dec',
     exp = exp[exp["logE"] > 1.]
+    if he_cut:
+        exp = exp[exp["logE"] < 5.3]
+        #~ exp = exp[exp['sinDec'] >= np.sin(np.radians(-5.))]
+        mc = mc[mc["logE"] < 5.3]
+        #~ mc = mc[mc['sinDec'] >= np.sin(np.radians(-5.))]
     exp['ra']=np.random.uniform(0, 2*np.pi, len(exp['ra']))
     if burn:
         part=10
@@ -141,6 +146,7 @@ def multi_init(n, basepath, inipath, **kwargs):
     prior = kwargs.pop("prior", [])
     burn = kwargs.pop("burn", True)
     mode = kwargs.pop("mode", "all")
+    he_cut = kwargs.pop("he_cut", False)
     
     # Current standard is to load first 4 files
     if "M16" in gethostname():
@@ -156,6 +162,7 @@ def multi_init(n, basepath, inipath, **kwargs):
                     "IC86-2012",
                     "IC86-2013",
                     "IC86-2014"]
+        filenames = list(reversed(filenames))
 
     nbounds = 5000.    
     mcdict = dict()
@@ -175,9 +182,19 @@ def multi_init(n, basepath, inipath, **kwargs):
     loaded_IC86 = False
     for i in xrange(n):
         if not loaded_IC86:
-            mcdict[i], expdict[i], ltdict[i] = load_data(basepath, inipath, filenames[i], burn=burn)
+            mcdict[i], expdict[i], ltdict[i] = load_data(basepath,
+                                                         inipath,
+                                                         filenames[i],
+                                                         burn=burn,
+                                                         he_cut=he_cut
+                                                        )
         else:
-            _, expdict[i], ltdict[i] = load_data(basepath, inipath, filenames[i], burn=burn)
+            _, expdict[i], ltdict[i] = load_data(basepath,
+                                                 inipath,
+                                                 filenames[i],
+                                                 burn=burn,
+                                                 he_cut=he_cut
+                                                )
         if filenames[i] in ["IC86-2012", "IC86-2013", "IC86-2014"]:
             loaded_IC86 = False
         
@@ -193,15 +210,17 @@ def multi_init(n, basepath, inipath, **kwargs):
         else:
             src_dec = kwargs.pop("src_dec", 0.)
             src_ra = kwargs.pop("src_ra", np.pi/2.)
-            injector = PointSourceInjector(src_gamma, sinDec_bandwidth=1, seed=np.random.randint(2**32))
+            injector = PointSourceInjector(src_gamma,
+                                           sinDec_bandwidth=1,
+                                           seed=np.random.randint(2**32)
+                                          )
             injector.fill(src_dec, mcdict, ltdict)
             #sam = injector.sample(src_ra, Nsrc, poisson=True).next()[1]
     else:
         injector = None
 
     max_key = max(mcdict.keys())
-    for i in xrange(n):    
-        #llh_i =  init(arr_exp = np.append(expdict[i], sam[i]) if (Nsrc > 0) else expdict[i],
+    for i in xrange(n): 
         llh_i =  init(expdict[i],
                         arr_mc = mcdict[min(i,max_key)],
                         livetime = ltdict[i],
@@ -228,8 +247,14 @@ def single_init(filename, basepath, inipath, **kwargs):
     n_uhecr = kwargs.pop("n_uhecr", 0)
     prior = kwargs.pop("prior", [])
     burn = kwargs.pop("burn", True)
+    he_cut = kwargs.pop("he_cut", False)
 
-    mc, exp, lt = load_data(basepath, inipath, filename, burn=burn)
+    mc, exp, lt = load_data(basepath,
+                            inipath,
+                            filename,
+                            burn=burn,
+                            he_cut=he_cut
+                           )
 
     if Nsrc > 0:
         if add_prior:
@@ -243,7 +268,10 @@ def single_init(filename, basepath, inipath, **kwargs):
         else:
             src_dec = kwargs.pop("src_dec", 0.)
             src_ra = kwargs.pop("src_ra", np.pi/2.)
-            injector = PointSourceInjector(src_gamma, sinDec_bandwidth=1, seed=seed)
+            injector = PointSourceInjector(src_gamma,
+                                           sinDec_bandwidth=1,
+                                           seed=seed
+                                          )
             injector.fill(src_dec, mc, lt)
             sam = injector.sample(src_ra, Nsrc, poisson=True).next()[1]
     else:

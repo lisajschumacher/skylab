@@ -71,9 +71,9 @@ def load_data(basepath, inipath, filename, shuffle_bool=True, burn=True, he_cut=
     exp = exp[exp["logE"] > 1.]
     if he_cut:
         exp = exp[exp["logE"] < 5.3]
-        #~ exp = exp[exp['sinDec'] >= np.sin(np.radians(-5.))]
         mc = mc[mc["logE"] < 5.3]
-        #~ mc = mc[mc['sinDec'] >= np.sin(np.radians(-5.))]
+        exp = exp[exp["sinDec"] >= np.sin(np.radians(-5.))]
+        mc = mc[mc["logE"] >= np.sin(np.radians(-5.))]
     exp['ra']=np.random.uniform(0, 2*np.pi, len(exp['ra']))
     if burn:
         part=10
@@ -102,22 +102,24 @@ def init(arr_exp, arr_mc, livetime, energy=True, **kwargs):
     fixed_gamma = kwargs.pop("fixed_gamma", False)
     add_prior = kwargs.pop("add_prior", False)
     fit_gamma = kwargs.pop("fit_gamma", 2.)
+    gamma_range = kwargs.pop("gamma_range", (0, 5))
     mode = kwargs.pop("mode", "all")
+    sinDec_range = kwargs.pop("sinDec_range", [-1., 1.])
     
     Nexp = len(arr_exp)
     nbounds = 5000.
 
     if energy and not fixed_gamma:
         llh_model = EnergyLLH(sinDec_bins=min(50, Nexp // 50),
-                                sinDec_range=[-1., 1.],
-                                bounds=(0, 5))
+                                sinDec_range=sinDec_range,
+                                bounds=gamma_range)
     elif fixed_gamma:
         llh_model = EnergyLLH(sinDec_bins=min(50, Nexp // 50),
-                                sinDec_range=[-1., 1.],
+                                sinDec_range=sinDec_range,
                                 bounds=(fit_gamma, fit_gamma))
     else:
         llh_model = UniformLLH(sinDec_bins=max(3, Nexp // 200),
-                               sinDec_range=[-1., 1.])
+                               sinDec_range=sinDec_range)
     if add_prior:
         llh = StackingPriorLLH(arr_exp, arr_mc, livetime, llh_model=llh_model,
                              mode=mode, nsource=25, scramble=False,
@@ -204,6 +206,7 @@ def multi_init(n, basepath, inipath, **kwargs):
                                         prior,
                                         nside_param=nside_param,
                                         n_uhecr=n_uhecr,
+					sinDec_bandwidth=0.01,
                                         seed=np.random.randint(2**32))
             injector.fill(mcdict, ltdict)
             #sam = injector.sample(Nsrc, poisson=True).next()[1]
@@ -211,7 +214,7 @@ def multi_init(n, basepath, inipath, **kwargs):
             src_dec = kwargs.pop("src_dec", 0.)
             src_ra = kwargs.pop("src_ra", np.pi/2.)
             injector = PointSourceInjector(src_gamma,
-                                           sinDec_bandwidth=1,
+                                           sinDec_bandwidth=0.01,
                                            seed=np.random.randint(2**32)
                                           )
             injector.fill(src_dec, mcdict, ltdict)

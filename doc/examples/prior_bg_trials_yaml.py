@@ -81,8 +81,10 @@ if __name__=="__main__":
 
     if not args["hecut"]:
         hemispheres = dict(North = np.radians([-5., 90.]), South = np.radians([-90., -5.]))
+	sinDec_range = [-1,1]
     else:
         hemispheres = dict(North = np.radians([-5., 90.]))
+	sinDec_range = [np.sin(hemispheres["North"][0]), 1]
     nside = 2**args["nsideparam"]
 
     # Other stuff
@@ -121,6 +123,7 @@ if __name__=="__main__":
                         ncpu = ncpu,
                         n_samples = args["nsamples"],
                         he_cut = args["hecut"],
+			sinDec_range = sinDec_range,
                         mode = "box")
 
     llh, injector = utils.startup(**startup_dict)
@@ -145,7 +148,11 @@ if __name__=="__main__":
     mins, secs = divmod(stop1 - start1, 60)
     hours, mins = divmod(mins, 60)
     print("Full scan finished after {2:2d}h {0:2d}m {1:2d}s".format(int(mins), int(secs), int(hours)))
-
+    if "test" in args["add"].lower():
+	keys = hemispheres.keys()
+	keys.extend(['best', 'ra', 'dec', 'nsources'])
+        print(keys)
+        print(best_hotspots[keys])
     # Save the results
     savepath = os.path.join(savepath, identifier)
     utils.prepare_directory(savepath)

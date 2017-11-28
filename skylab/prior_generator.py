@@ -204,7 +204,9 @@ class UhecrPriorGenerator(PriorGenerator):
         return _template
 
     def _get_UHECR_positions(self, energy_threshold, data_path,
-                             files = ["AugerUHECR2014.txt", "TelArrayUHECR.txt"]):
+                             files = ["AugerUHECR2014.txt", "TelArrayUHECR.txt"],
+			     declination_range = [-np.pi/2., np.pi/2.]
+			     ):
         """ Read the UHECR text file(s)
         Parameters:
             energy_threshold : float

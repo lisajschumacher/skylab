@@ -39,7 +39,8 @@ ident = [
 "hecut",
 "mdparams",
 "ecut",
-"mu"
+"mu",
+"fixedgamma"
 ]
 
 parser = ArgumentParser()
@@ -52,14 +53,15 @@ parser.add_argument("job",
                     type=int,  
                     help="Job ID"
                    )
-		   
+
 if __name__=="__main__":
     # parse the yaml file
     inputs = parser.parse_args()
     yaml_file = inputs.yaml_file
     jobID = inputs.job
     args = yload(file(yaml_file))
-
+    print("Loaded yaml args...:")
+    print(args)
     # get the parameter args and get a string for saving later
     if not "test" in args["add"].lower():
         # Add time since epoch as additional unique label if we are not testing        
@@ -80,8 +82,10 @@ if __name__=="__main__":
 
     if not args["hecut"]:
         hemispheres = dict(North = np.radians([-5., 90.]), South = np.radians([-90., -5.]))
+	sinDec_range = [-1,1]
     else:
         hemispheres = dict(North = np.radians([-5., 90.]))
+	sinDec_range = [np.sin(hemispheres["North"][0]), 1]
     nside = 2**args["nsideparam"]
 
     # Other stuff
@@ -102,10 +106,11 @@ if __name__=="__main__":
                         inipath = inipath,
                         seed = seed,
                         Nsrc = args["mu"], ### Signal ###
-                        fixed_gamma = True,
+                        fixed_gamma = args["fixedgamma"],
+			gamma_range = args["gammarange"],
                         add_prior = True,
-                        src_gamma = 2.,
-                        fit_gamma = 2.,
+                        src_gamma = args["srcgamma"],
+                        fit_gamma = args["fitgamma"],
                         multi = True if args["nsamples"]>1 else False,
                         n_uhecr = pg.n_uhecr,
                         nside_param = args["nsideparam"],
@@ -113,6 +118,7 @@ if __name__=="__main__":
                         ncpu = ncpu,
                         n_samples = args["nsamples"],
                         he_cut = args["hecut"],
+			sinDec_range = sinDec_range,
                         mode = "box")
 
     llh, injector = utils.startup(prior = tm, **startup_dict)
@@ -138,10 +144,10 @@ if __name__=="__main__":
     hours, mins = divmod(mins, 60)
     print("Full scan finished after {2:2d}h {0:2d}m {1:2d}s".format(int(mins), int(secs), int(hours)))
     if "test" in args["add"].lower():
-        #~ print(best_hotspots.dtype.names)
-        #~ print(best_hotspots[['ra', 'ra_inj', 'dec', 'dec_inj']])
-        print(['North', 'best', 'ra', 'dec', 'nsources', 'gamma', 'ra_inj', 'dec_inj', 'n_inj'])
-        print(best_hotspots[['North', 'best', 'ra', 'dec', 'nsources', 'gamma', 'ra_inj', 'dec_inj', 'n_inj']])
+	keys = hemispheres.keys()
+	keys.extend(['best', 'ra', 'dec', 'nsources', 'gamma'])
+        print(keys)
+        print(best_hotspots[keys])
     # Save the results
     savepath = os.path.join(savepath, identifier)
     utils.prepare_directory(savepath)

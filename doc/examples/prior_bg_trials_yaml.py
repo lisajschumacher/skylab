@@ -39,7 +39,8 @@ ident = [
 "hecut",
 "mdparams",
 "ecut",
-"mu"
+"mu",
+"fixedgamma"
 ]
 
 parser = ArgumentParser()
@@ -53,14 +54,14 @@ parser.add_argument("job",
                     help="Job ID"
                    )
 
-
 if __name__=="__main__":
     # parse the yaml file
     inputs = parser.parse_args()
     yaml_file = inputs.yaml_file
     jobID = inputs.job
     args = yload(file(yaml_file))
-
+    print("Loaded yaml args...:")
+    print(args)
     # get the parameter args and get a string for saving later
     if not "test" in args["add"].lower():
         # Add time since epoch as additional unique label if we are not testing        
@@ -112,10 +113,11 @@ if __name__=="__main__":
                         inipath = inipath,
                         seed = seed,
                         Nsrc = 0, ### Background ###
-                        fixed_gamma = True,
+                        fixed_gamma = args["fixedgamma"],
+			gamma_range = args["gammarange"],
                         add_prior = True,
-                        src_gamma = 2.,
-                        fit_gamma = 2.,
+                        src_gamma = args["srcgamma"],
+                        fit_gamma = args["fitgamma"],
                         multi = True if args["nsamples"]>1 else False,
                         n_uhecr = pg.n_uhecr,
                         nside_param = args["nsideparam"],
@@ -150,7 +152,7 @@ if __name__=="__main__":
     print("Full scan finished after {2:2d}h {0:2d}m {1:2d}s".format(int(mins), int(secs), int(hours)))
     if "test" in args["add"].lower():
 	keys = hemispheres.keys()
-	keys.extend(['best', 'ra', 'dec', 'nsources'])
+	keys.extend(['best', 'ra', 'dec', 'nsources', 'gamma'])
         print(keys)
         print(best_hotspots[keys])
     # Save the results

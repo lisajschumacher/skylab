@@ -86,7 +86,7 @@ def plotting(backend="QT4Agg"):
     rcParams["text.usetex"] = True
     rcParams["lines.linewidth"] = 2
     rcParams["figure.dpi"] = 120
-    rcParams["figure.figsize"] = (tw, tw / 1.6)
+    rcParams["figure.figsize"] = (tw, tw / 1.2)
     rcParams["figure.autolayout"] = True
     # Prop_cycle is new in Matplotlib 2.0
     rcParams["axes.prop_cycle"] = (cycler("color", colors*len(linestyles))

@@ -157,10 +157,10 @@ if __name__=="__main__":
         utils.save_json_data(hemispheres.keys(), savepath, "hemispheres")
     for i,hs in enumerate(best_hotspots):
         hs = numpy.lib.recfunctions.append_fields(hs, 
-                                                "energy", 
-                                                data=energies,
-                                                dtypes=np.float, 
-                                                usemask=False)
+                                                  "energy", 
+                                                  data=energies,
+                                                  dtypes=np.float, 
+                                                  usemask=False)
         np.savetxt(os.path.join(savepath,  "job"+str(jobID)+"_hotspots_"+str(i)+".txt"),
                    hs,
                    header=" ".join(hs.dtype.names),

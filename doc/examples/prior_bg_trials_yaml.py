@@ -96,17 +96,10 @@ if __name__=="__main__":
 
     # Generate several templates for prior fitting
     # One for each deflection hypothesis each
-    md_params = np.atleast_1d(args["mdparams"])
     pg = UhecrPriorGenerator(args["nsideparam"])
-    log_tm = []
-    tm = []
-    for md in md_params:
-        temp = pg.calc_template(np.radians(md), pg._get_UHECR_positions(args["ecut"], crpath))
-        log_tm.extend(temp)
-        temp = np.exp(temp)
-        tm.extend(temp/temp.sum(axis=1)[np.newaxis].T)
-    log_tm = np.array(log_tm)
-    tm = np.array(tm)
+    log_tm = pg.calc_template(np.radians(args["mdparams"]), pg._get_UHECR_positions(args["ecut"], crpath))
+    temp = np.exp(log_tm)
+    tm = temp/temp.sum(axis=1)[np.newaxis].T
     energies = pg.energy
     
     startup_dict = dict(basepath = basepath,
@@ -164,11 +157,10 @@ if __name__=="__main__":
         utils.save_json_data(hemispheres.keys(), savepath, "hemispheres")
     for i,hs in enumerate(best_hotspots):
         hs = numpy.lib.recfunctions.append_fields(hs, 
-            ["energy", "deflection"], 
-            data=[np.tile(energies, len(md_params)), 
-                  np.repeat(md_params, pg.n_uhecr)],
-            dtypes=[np.float, np.float], 
-            usemask=False)
+                                                  "energy", 
+                                                  data=energies,
+                                                  dtypes=np.float, 
+                                                  usemask=False)
         np.savetxt(os.path.join(savepath,  "job"+str(jobID)+"_hotspots_"+str(i)+".txt"),
                    hs,
                    header=" ".join(hs.dtype.names),

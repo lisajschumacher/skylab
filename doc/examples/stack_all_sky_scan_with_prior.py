@@ -97,9 +97,9 @@ if __name__=="__main__":
     nside = 2**args["nsideparam"]
     mark_hotspots = True
     mark_injected = True
-    markersize = 500
+    markersize = 250
     plot_single = False
-    extension = "_multi.png"
+    
     
     if "physik.rwth-aachen.de" in gethostname():
         ncpu = 4
@@ -113,6 +113,8 @@ if __name__=="__main__":
     temp = np.exp(log_tm)
     tm = temp/temp.sum(axis=1)[np.newaxis].T
     energies = pg.energy
+    if len(log_tm)>1: extension = "_multi.png"
+    if len(log_tm)==1: extension = "_single_2.png"
     
     startup_dict = dict(basepath = basepath,
                         inipath = inipath,
@@ -170,11 +172,13 @@ if __name__=="__main__":
     # Looking at the hotspots and separating them into North and South
     hk = hemispheres.keys()
     print "Hemisphere keys:", hk
+    print "mu:", num
     best_hotspots = np.zeros(pg.n_uhecr,
                              dtype=[(p, np.float) for p in hk]
                                                 +[("best", np.float)]
                                                 +[("dec", np.float)]
                                                 +[("ra", np.float)]
+                                                +[("ninj", np.float)]
                                                 +[("nsources", np.float)])
 
     for i,hi in enumerate(hotspots):
@@ -253,6 +257,14 @@ if __name__=="__main__":
 			       rasterized=True)
 			       
 	fig.savefig(figurepath+"/skymap_" + str(c) + key + extension, dpi=256)
+	if args["mu"]>0:
+	    ax.scatter(np.pi - src_ra[c], src_dec[c], markersize,
+			marker="o",
+			facecolor='none',
+			edgecolors='cyan',
+			alpha=0.5,
+			label="Injected")
+	    fig.savefig(figurepath+"/skymap_inj_" + str(c) + extension, dpi=256)
 	if mark_hotspots:
 	    #for bhi in best_hotspots:
 	    ax.scatter(np.pi - best_hotspots[c]["ra"], best_hotspots[c]["dec"], markersize,
@@ -262,15 +274,6 @@ if __name__=="__main__":
 			alpha=0.5,
 			label="Hotspot fit")
 	    fig.savefig(figurepath+"/skymap_hsp_" + str(c) + key + extension, dpi=256)
-	    
-	if args["mu"]>0:
-	    ax.scatter(np.pi - src_ra[c], src_dec[c], markersize,
-			marker="o",
-			facecolor='none',
-			edgecolors='cyan',
-			alpha=0.5,
-			label="Injected")
-	    fig.savefig(figurepath+"/skymap_inj_" + str(c) + extension, dpi=256)
 	plt.close("all")
 	#c+=1
     #else:
@@ -289,6 +292,14 @@ if __name__=="__main__":
 			   colorbar=dict(title=label[key]),
 			   rasterized=True)
     fig.savefig(figurepath+"/skymap_postTS_full" + extension, dpi=256)
+    if args["mu"]>0:
+	ax.scatter(np.pi - src_ra, src_dec, markersize,
+		    marker="o",
+		    facecolor='none',
+		    edgecolors='cyan',
+		    alpha=0.5,
+		    label="Injected")
+	fig.savefig(figurepath+"/skymap_postTS_full_inj" + extension, dpi=256)
     if mark_hotspots:
 	for bhi in best_hotspots:
 	    ax.scatter(np.pi - bhi["ra"], bhi["dec"], markersize,
@@ -298,12 +309,4 @@ if __name__=="__main__":
 			alpha=0.5,
 			label="Hotspot fit")
 	fig.savefig(figurepath+"/skymap_postTS_full_hsp" + extension, dpi=256)
-    if args["mu"]>0:
-	ax.scatter(np.pi - src_ra, src_dec, markersize,
-		    marker="o",
-		    facecolor='none',
-		    edgecolors='cyan',
-		    alpha=0.5,
-		    label="Injected")
-	fig.savefig(figurepath+"/skymap_postTS_full_inj" + extension, dpi=256)
     plt.close("all")

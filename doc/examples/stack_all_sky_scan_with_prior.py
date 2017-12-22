@@ -172,14 +172,15 @@ if __name__=="__main__":
     # Looking at the hotspots and separating them into North and South
     hk = hemispheres.keys()
     print "Hemisphere keys:", hk
-    print "mu:", num
+    print "injected: ", num
+    print "at position: (ra, dec) ", src_ra, src_dec
     best_hotspots = np.zeros(pg.n_uhecr,
                              dtype=[(p, np.float) for p in hk]
                                                 +[("best", np.float)]
                                                 +[("dec", np.float)]
                                                 +[("ra", np.float)]
-                                                +[("ninj", np.float)]
-                                                +[("nsources", np.float)])
+                                                +[("nsources", np.float)]
+                                                +[("gamma", np.float)])
 
     for i,hi in enumerate(hotspots):
         for h in hk:
@@ -189,11 +190,13 @@ if __name__=="__main__":
             best_hotspots["ra"][i] = hi[hk[0]]["best"]["ra"]
             best_hotspots["dec"][i] = hi[hk[0]]["best"]["dec"]
             best_hotspots["nsources"][i] = hi[hk[0]]["best"]["nsources"]
+            best_hotspots["gamma"][i] = hi[hk[0]]["best"]["gamma"]
         else:
             best_hotspots["best"][i] = best_hotspots[hk[1]][i]
             best_hotspots["ra"][i] = hi[hk[1]]["best"]["ra"]
             best_hotspots["dec"][i] = hi[hk[1]]["best"]["dec"]
             best_hotspots["nsources"][i] = hi[hk[1]]["best"]["nsources"]
+            best_hotspots["gamma"][i] = hi[hk[1]]["best"]["gamma"]
         
     print "Hotspots:"
     print best_hotspots.dtype.names

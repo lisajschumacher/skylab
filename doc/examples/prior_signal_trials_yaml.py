@@ -147,7 +147,7 @@ if __name__=="__main__":
 	keys = hemispheres.keys()
 	keys.extend(['best', 'ra', 'dec', 'nsources', 'gamma'])
         print(keys)
-        print(best_hotspots[keys])
+        print(np.sort(best_hotspots, order='dec')[keys])
     # Save the results
     savepath = os.path.join(savepath, identifier)
     utils.prepare_directory(savepath)

@@ -81,11 +81,12 @@ if __name__=="__main__":
     print "With Identifier: ", identifier
 
     if not args["hecut"]:
-        hemispheres = dict(North = np.radians([-5., 90.]), South = np.radians([-90., -5.]))
-	sinDec_range = [-1,1]
+        hemispheres = dict(North = np.radians(args["north_range"]), 
+                           South = np.radians(args["south_range"]))
+        sinDec_range =  [-1., 1.]
     else:
-        hemispheres = dict(North = np.radians([-5., 90.]))
-	sinDec_range = [np.sin(hemispheres["North"][0]), 1]
+        hemispheres = dict(North = np.radians(args["north_range"]))
+	sinDec_range = [np.sin(hemispheres["North"][0]), 1.]
     nside = 2**args["nsideparam"]
 
     # Other stuff

@@ -35,15 +35,20 @@ def set_seed(n):
     seed = 1+3+3+7+n
     np.random.seed(seed)
 
-def load_data(basepath, inipath, filename, shuffle_bool=True, burn=True, he_cut=False):
+def load_data(basepath, inipath, filename, 
+              shuffle_bool=True, burn=True, he_cut=False):
     """ 
     shuffle_bool: do or do not shuffle experimental data
                                 (currently setting to false has no effect)
+    burn (bool): use small data set, if True
+
+    he_cut (bool): Cut out high-energy events above log(E)>5.3
+
     basepath:
-                        Madison: 	/data/user/coenders/data/MultiYearPointSource/npz/
-                                            ini_path: /data/user/lschumacher/config_files_ps/*.ini
-                        Aachen: 	/net/scratch_icecube4/user/lschumacher/projects/data/ps_sample/coenders_pub/
-                                            ini_path: same as above
+    Madison: 	/data/user/coenders/data/MultiYearPointSource/npz/
+                ini_path: /data/user/lschumacher/config_files_ps/*.ini
+    Aachen: 	/net/scratch_icecube4/user/lschumacher/projects/data/ps_sample/coenders_pub/
+                ini_path: same as above
     Possible filenames:
     Style: IC*_(corrected_MC|exp).npy
     IC40
@@ -69,11 +74,12 @@ def load_data(basepath, inipath, filename, shuffle_bool=True, burn=True, he_cut=
     exp = np.load(join(basepath, filename+"_exp.npy"))
     exp = exp[['ra', 'logE', 'sigma', 'sinDec']]  # 'dec',
     exp = exp[exp["logE"] > 1.]
+
     if he_cut:
         exp = exp[exp["logE"] < 5.3]
         mc = mc[mc["logE"] < 5.3]
         exp = exp[exp["sinDec"] >= np.sin(np.radians(-5.))]
-        mc = mc[mc["logE"] >= np.sin(np.radians(-5.))]
+        mc = mc[mc["sinDec"] >= np.sin(np.radians(-5.))]
     exp['ra']=np.random.uniform(0, 2*np.pi, len(exp['ra']))
     if burn:
         part=10
@@ -188,14 +194,14 @@ def multi_init(n, basepath, inipath, **kwargs):
                                                          inipath,
                                                          filenames[i],
                                                          burn=burn,
-                                                         he_cut=he_cut
+                                                         he_cut=he_cut,
                                                         )
         else:
             _, expdict[i], ltdict[i] = load_data(basepath,
                                                  inipath,
                                                  filenames[i],
                                                  burn=burn,
-                                                 he_cut=he_cut
+                                                 he_cut=he_cut,
                                                 )
         if filenames[i] in ["IC86-2012", "IC86-2013", "IC86-2014"]:
             loaded_IC86 = False
@@ -225,14 +231,14 @@ def multi_init(n, basepath, inipath, **kwargs):
     max_key = max(mcdict.keys())
     for i in xrange(n): 
         llh_i =  init(expdict[i],
-                        arr_mc = mcdict[min(i,max_key)],
-                        livetime = ltdict[i],
-                        energy=energy,
-                        fixed_gamma=fixed_gamma,
-                        fit_gamma=fit_gamma,
-                        add_prior=add_prior,
-                        mode=mode,
-                        **kwargs
+                      arr_mc = mcdict[min(i,max_key)],
+                      livetime = ltdict[i],
+                      energy=energy,
+                      fixed_gamma=fixed_gamma,
+                      fit_gamma=fit_gamma,
+                      add_prior=add_prior,
+                      mode=mode,
+                      **kwargs
                         )
         llh.add_sample(str(i), llh_i)
 

@@ -84,7 +84,7 @@ class BaseLLH(object):
     _ub_perc = 1.
 
     def __init__(self, nsource=15., nsource_rho=0.9, nsource_bounds=(0., 1e3),
-                 seed=None, ncpu=1):
+                 seed=None, ncpu=1, **kwargs):
         self.nsource = nsource
         self.nsource_rho = nsource_rho
         self.nsource_bounds = nsource_bounds

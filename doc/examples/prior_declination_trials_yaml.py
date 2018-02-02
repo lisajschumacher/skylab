@@ -43,6 +43,11 @@ ident = [
 "fixedgamma"
 ]
 
+backend = "pdf"
+extension = "_test_trials.png"
+
+plt = utils.plotting(backend=backend)
+
 parser = ArgumentParser()
 
 parser.add_argument("yaml_file", 
@@ -94,26 +99,17 @@ if __name__=="__main__":
         ncpu = 1
     else:
         ncpu = 1
-
-    # Generate several templates for prior fitting
-    # One for each deflection hypothesis each
-    pg = UhecrPriorGenerator(args["nsideparam"])
-    log_tm = pg.calc_template(np.radians(args["mdparams"]), pg._get_UHECR_positions(args["ecut"], crpath))
-    temp = np.exp(log_tm)
-    tm = temp/temp.sum(axis=1)[np.newaxis].T
-    energies = pg.energy
     
     startup_dict = dict(basepath = basepath,
                         inipath = inipath,
                         seed = seed,
-                        Nsrc = args["mu"], ### Signal ###
+                        Nsrc = 0,
                         fixed_gamma = args["fixedgamma"],
 			gamma_range = args["gammarange"],
-                        add_prior = True,
+                        add_prior = False,
                         src_gamma = args["srcgamma"],
                         fit_gamma = args["fitgamma"],
                         multi = True if args["nsamples"]>1 else False,
-                        n_uhecr = pg.n_uhecr,
                         nside_param = args["nsideparam"],
                         burn = args["burn"],
                         ncpu = ncpu,
@@ -122,49 +118,55 @@ if __name__=="__main__":
 			sinDec_range = sinDec_range,
                         mode = "box")
 
-    llh, injector = utils.startup(prior = tm, **startup_dict)
+    llh, injector = utils.startup(**startup_dict)
     
     if injector==None:
         mu = None
     else:
         mu = injector.sample(args["mu"], poisson=True, position=True)
-
-    trials_dict = dict(n_iter = args["niter"], 
-                        nside = nside,
-                        follow_up_factor = args["followupfactor"],
-                        pVal = pVal_func)
+    ##################
+    num = 60
+    declinations = np.arcsin(np.linspace(-1., 1., num=num+1))
+    declinations = (declinations[:-1]+declinations[1:])/2.
+    
     start1 = time.time() 
-    best_hotspots = llh.do_trials(prior = log_tm,
-                        hemispheres = hemispheres,
-                        mu = mu, 
-                        **trials_dict)
-    stop1 = time.time()
+    for i,src_dec in enumerate(declinations):
+        if i%10==1:
+	    print "Iteration", i, "of", num
+        trials = llh.do_trials(src_ra=np.pi/2., src_dec=src_dec, mu=None, n_iter=args["niter"])
+	plt.figure(i)
+        n, bins, _ = plt.hist(trials["TS"], bins=20, normed=False)
+	plt.semilogy(nonposy="clip")
+	plt.savefig(("figures/TS_trials/logTS_{}"+identifier+extension).format(i))
 
+    stop1 = time.time()
     mins, secs = divmod(stop1 - start1, 60)
-    hours, mins = divmod(mins, 60)
-    print("Full scan finished after {2:2d}h {0:2d}m {1:2d}s".format(int(mins), int(secs), int(hours)))
-    if "test" in args["add"].lower():
-	keys = hemispheres.keys()
-	keys.extend(['best', 'ra', 'dec', 'nsources', 'gamma'])
-        print(keys)
-        print(np.sort(best_hotspots, order='dec')[keys])
-    # Save the results
-    savepath = os.path.join(savepath, identifier)
-    utils.prepare_directory(savepath)
-    if jobID == 0:
-        utils.save_json_data(startup_dict, savepath, "startup_dict")
-        utils.save_json_data(trials_dict, savepath, "trials_dict")
-        utils.save_json_data(hemispheres.keys(), savepath, "hemispheres")
-    for i,hs in enumerate(best_hotspots):
-        hs = numpy.lib.recfunctions.append_fields(hs, 
-                                                  "energy", 
-                                                  data=energies,
-                                                  dtypes=np.float, 
-                                                  usemask=False)
-        np.savetxt(os.path.join(savepath,  "job"+str(jobID)+"_hotspots_"+str(i)+".txt"),
-                   hs,
-                   header=" ".join(hs.dtype.names),
-                   comments="")
-    print "Trials and Hotspots saved to:"
-    print savepath
+    print("Trials finished after {0:2d}' {1:4.2f}''".format(int(mins), int(secs)))
+    #~ pickle.dump(declinations, open("figures/TS_trials/declinations.pickle", "wb"))
+    #~ ###################
+#~ 
+    #~ if "test" in args["add"].lower():
+	#~ keys = hemispheres.keys()
+	#~ keys.extend(['best', 'ra', 'dec', 'nsources', 'gamma', 'ra_inj', 'dec_inj', 'n_inj'])
+        #~ print(keys)
+        #~ print(best_hotspots[keys])
+    #~ # Save the results
+    #~ savepath = os.path.join(savepath, identifier)
+    #~ utils.prepare_directory(savepath)
+    #~ if jobID == 0:
+        #~ utils.save_json_data(startup_dict, savepath, "startup_dict")
+        #~ utils.save_json_data(trials_dict, savepath, "trials_dict")
+        #~ utils.save_json_data(hemispheres.keys(), savepath, "hemispheres")
+    #~ for i,hs in enumerate(best_hotspots):
+        #~ hs = numpy.lib.recfunctions.append_fields(hs, 
+                                                  #~ "energy", 
+                                                  #~ data=energies,
+                                                  #~ dtypes=np.float, 
+                                                  #~ usemask=False)
+        #~ np.savetxt(os.path.join(savepath,  "job"+str(jobID)+"_hotspots_"+str(i)+".txt"),
+                   #~ hs,
+                   #~ header=" ".join(hs.dtype.names),
+                   #~ comments="")
+    #~ print "Trials and Hotspots saved to:"
+    #~ print savepath
     

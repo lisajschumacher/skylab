@@ -466,7 +466,7 @@ class PriorLLHMixin(object):
 		best_hotspots["ra_inj"][i] = inject[i][2]
 		best_hotspots["dec_inj"][i] = inject[i][3]
 		
-            for scan_i, (_, hotspots) in enumerate(self.all_sky_scan(prior,
+            for scan_i, (result, hotspots) in enumerate(self.all_sky_scan(prior,
                                               hemispheres=hemispheres,
                                               follow_up_factor = follow_up_factor,
                                               **kwargs)):
@@ -494,7 +494,7 @@ class PriorLLHMixin(object):
 		self._remove_injection()
             super(PriorLLHMixin, self)._scramble_exp()
 
-        return best_hotspots
+        return best_hotspots, result
 
 
 class StackingPriorLLH(PriorLLHMixin, psLLH.PointSourceLLH):

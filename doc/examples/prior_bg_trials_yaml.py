@@ -132,10 +132,10 @@ if __name__=="__main__":
     trials_dict = dict(n_iter = args["niter"], 
                         nside = nside,
                         follow_up_factor = args["followupfactor"],
-                        pVal = pVal_func,
-                        fit_gamma = 2.)
+                        pVal = pVal_func)
+    print("meep meep")
     start1 = time.time() 
-    best_hotspots = llh.do_trials(prior = log_tm,
+    best_hotspots, result = llh.do_trials(prior = log_tm,
                         hemispheres = hemispheres,
                         mu = mu, 
                         **trials_dict)

@@ -162,6 +162,14 @@ if __name__=="__main__":
                                                   data=energies,
                                                   dtypes=np.float, 
                                                   usemask=False)
+        if np.any(hs['best']>10):
+            print("HALP")
+            print(np.shape(result))
+            np.savetxt(os.path.join(savepath,  "job"+str(jobID)+"_ts-map_"+str(i)+".txt"),
+                       result[i],
+                       header=" ".join(result[i].dtype.names),
+                       comments="")
+
         np.savetxt(os.path.join(savepath,  "job"+str(jobID)+"_hotspots_"+str(i)+".txt"),
                    hs,
                    header=" ".join(hs.dtype.names),

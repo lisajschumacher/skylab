@@ -36,10 +36,6 @@ logging.getLogger("MixIn").setLevel(level)
 pVal_func = None
 ident = [
 "nsamples",
-"hecut",
-"mdparams",
-"ecut",
-"mu",
 "fixedgamma"
 ]
 
@@ -118,55 +114,33 @@ if __name__=="__main__":
 			sinDec_range = sinDec_range,
                         mode = "box")
 
-    llh, injector = utils.startup(**startup_dict)
+    llh, _ = utils.startup(**startup_dict)
     
-    if injector==None:
-        mu = None
-    else:
-        mu = injector.sample(args["mu"], poisson=True, position=True)
+    #~ if injector==None:
+        #~ mu = None
+    #~ else:
+        #~ mu = injector.sample(args["mu"], poisson=True, position=True)
     ##################
-    num = 60
-    declinations = np.arcsin(np.linspace(-1., 1., num=num+1))
-    declinations = (declinations[:-1]+declinations[1:])/2.
+    #~ num = 10
+    #~ declinations = np.arcsin(np.linspace(-1., 1., num=num+1))
+    #~ declinations = (declinations[:-1]+declinations[1:])/2.
     
     start1 = time.time() 
-    for i,src_dec in enumerate(declinations):
-        if i%10==1:
-	    print "Iteration", i, "of", num
-        trials = llh.do_trials(src_ra=np.pi/2., src_dec=src_dec, mu=None, n_iter=args["niter"])
-	plt.figure(i)
-        n, bins, _ = plt.hist(trials["TS"], bins=20, normed=False)
-	plt.semilogy(nonposy="clip")
-	plt.savefig(("figures/TS_trials/logTS_{}"+identifier+extension).format(i))
+    #~ for i,src_dec in enumerate(declinations):
+        #~ if i%10==1:
+	    #~ print "Iteration", i, "of", num
+    trials = llh.do_trials(src_ra=np.pi/2., src_dec=args["src_dec"], mu=None, n_iter=args["niter"])
+    np.savetxt(os.path.join(savepath,"dec_trials/TS_{}_".format(jobID)+identifier+".npy"),
+               trials["TS"],
+	       fmt='%.10e',
+	       header=str(args["src_dec"])
+	       )
+    #~ with open(os.path.join(savepath,"dec_trials/TS_{}_".format(jobID)+identifier+".pickle"), "wb") as f:
+	#~ pickle.dump(trials["TS"], f)
 
     stop1 = time.time()
     mins, secs = divmod(stop1 - start1, 60)
     print("Trials finished after {0:2d}' {1:4.2f}''".format(int(mins), int(secs)))
-    #~ pickle.dump(declinations, open("figures/TS_trials/declinations.pickle", "wb"))
-    #~ ###################
-#~ 
-    #~ if "test" in args["add"].lower():
-	#~ keys = hemispheres.keys()
-	#~ keys.extend(['best', 'ra', 'dec', 'nsources', 'gamma', 'ra_inj', 'dec_inj', 'n_inj'])
-        #~ print(keys)
-        #~ print(best_hotspots[keys])
-    #~ # Save the results
-    #~ savepath = os.path.join(savepath, identifier)
-    #~ utils.prepare_directory(savepath)
-    #~ if jobID == 0:
-        #~ utils.save_json_data(startup_dict, savepath, "startup_dict")
-        #~ utils.save_json_data(trials_dict, savepath, "trials_dict")
-        #~ utils.save_json_data(hemispheres.keys(), savepath, "hemispheres")
-    #~ for i,hs in enumerate(best_hotspots):
-        #~ hs = numpy.lib.recfunctions.append_fields(hs, 
-                                                  #~ "energy", 
-                                                  #~ data=energies,
-                                                  #~ dtypes=np.float, 
-                                                  #~ usemask=False)
-        #~ np.savetxt(os.path.join(savepath,  "job"+str(jobID)+"_hotspots_"+str(i)+".txt"),
-                   #~ hs,
-                   #~ header=" ".join(hs.dtype.names),
-                   #~ comments="")
-    #~ print "Trials and Hotspots saved to:"
-    #~ print savepath
+    #~ with open(os.path.join(savepath,"dec_trials/declinations.pickle"), "wb") as d:
+	#~ pickle.dump(declinations, d)
     

@@ -450,7 +450,7 @@ class PriorLLHMixin(object):
                                     North=(-np.deg2rad(5.), np.pi/2.)))
         h_keys = hemispheres.keys()
         res_keys = ["ra", "dec"] + self.params #super(PriorLLHMixin, self).params
-        best_hotspots = np.zeros((n_iter, len(prior)),
+        best_hotspots = np.zeros(len(prior),
                                   dtype=[(p, np.float) for p in h_keys] 
                                   +[(p, np.float) for p in res_keys]
                                   +[("best", np.float)]
@@ -459,12 +459,14 @@ class PriorLLHMixin(object):
                                   +[("n_inj", np.float)])
 
         # all_sky_scan for every trial
-        for i in range(n_iter):
+        #for i in range(n_iter):
+        i = 0
+        while True:
 	    if mu is not None and inject[i][1] is not None:
 		self._add_injection(inject[i][1])
-		best_hotspots["n_inj"][i] = inject[i][0]
-		best_hotspots["ra_inj"][i] = inject[i][2]
-		best_hotspots["dec_inj"][i] = inject[i][3]
+		best_hotspots["n_inj"] = inject[i][0]
+		best_hotspots["ra_inj"] = inject[i][2]
+		best_hotspots["dec_inj"] = inject[i][3]
 		
             for scan_i, (result, hotspots) in enumerate(self.all_sky_scan(prior,
                                               hemispheres=hemispheres,
@@ -477,15 +479,15 @@ class PriorLLHMixin(object):
             
             for h_i,hspots in enumerate(hotspots):
                 for hk in h_keys:
-                    best_hotspots[hk][i][h_i] = hspots[hk]["best"]["TS"]
-                if len(h_keys)==2 and (best_hotspots[h_keys[1]][i][h_i] >= best_hotspots[h_keys[0]][i][h_i]):
-                    best_hotspots["best"][i][h_i] = best_hotspots[h_keys[1]][i][h_i]
+                    best_hotspots[hk][h_i] = hspots[hk]["best"]["TS"]
+                if len(h_keys)==2 and (best_hotspots[h_keys[1]][h_i] >= best_hotspots[h_keys[0]][h_i]):
+                    best_hotspots["best"][h_i] = best_hotspots[h_keys[1]][h_i]
                     for p in res_keys:
-                        best_hotspots[p][i][h_i] = hspots[h_keys[1]]["best"][p]
+                        best_hotspots[p][h_i] = hspots[h_keys[1]]["best"][p]
                 else:
-                    best_hotspots["best"][i][h_i] = best_hotspots[h_keys[0]][i][h_i]
+                    best_hotspots["best"][h_i] = best_hotspots[h_keys[0]][h_i]
                     for p in res_keys:
-                        best_hotspots[p][i][h_i] = hspots[h_keys[0]]["best"][p]
+                        best_hotspots[p][h_i] = hspots[h_keys[0]]["best"][p]
 
 	    # Remove injected events and then
             # scramble these events after scan
@@ -493,8 +495,11 @@ class PriorLLHMixin(object):
 	    if mu is not None and inject[i][1] is not None: 
 		self._remove_injection()
             super(PriorLLHMixin, self)._scramble_exp()
+            yield best_hotspots, result
+            i += 1
+            if i>=n_iter: return
 
-        return best_hotspots, result
+        #return best_hotspots, result
 
 
 class StackingPriorLLH(PriorLLHMixin, psLLH.PointSourceLLH):

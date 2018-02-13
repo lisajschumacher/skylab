@@ -133,38 +133,44 @@ if __name__=="__main__":
                         nside = nside,
                         follow_up_factor = args["followupfactor"],
                         pVal = pVal_func)
-    start1 = time.time() 
-    best_hotspots = llh.do_trials(prior = log_tm,
-                        hemispheres = hemispheres,
-                        mu = mu, 
-                        **trials_dict)
-    stop1 = time.time()
-
-    mins, secs = divmod(stop1 - start1, 60)
-    hours, mins = divmod(mins, 60)
-    print("Full scan finished after {2:2d}h {0:2d}m {1:2d}s".format(int(mins), int(secs), int(hours)))
-    if "test" in args["add"].lower():
-	keys = hemispheres.keys()
-	keys.extend(['best', 'ra', 'dec', 'nsources', 'gamma'])
-        print(keys)
-        print(np.sort(best_hotspots, order='dec')[keys])
-    # Save the results
     savepath = os.path.join(savepath, identifier)
     utils.prepare_directory(savepath)
     if jobID == 0:
         utils.save_json_data(startup_dict, savepath, "startup_dict")
         utils.save_json_data(trials_dict, savepath, "trials_dict")
         utils.save_json_data(hemispheres.keys(), savepath, "hemispheres")
-    for i,hs in enumerate(best_hotspots):
+    start1 = time.time()
+    trial_generator = llh.do_trials(prior = log_tm,
+                                    hemispheres = hemispheres,
+                                    mu = mu,
+                                    **trials_dict)
+    for i,(hs, result) in enumerate(trial_generator):
+        if "test" in args["add"].lower():
+            keys = hemispheres.keys()
+	    keys.extend(['best', 'ra', 'dec', 'nsources', 'gamma'])
+            print(keys)
+            print(hs[keys])
+        # Save the results
         hs = numpy.lib.recfunctions.append_fields(hs, 
                                                   "energy", 
                                                   data=energies,
                                                   dtypes=np.float, 
                                                   usemask=False)
+        if np.any(hs['best']>100):
+            np.savetxt(os.path.join(savepath,  "job"+str(jobID)+"_ts-map_"+str(i)+".txt"),
+                       result,
+                       header=" ".join(result.dtype.names),
+                       comments="")
+
         np.savetxt(os.path.join(savepath,  "job"+str(jobID)+"_hotspots_"+str(i)+".txt"),
                    hs,
                    header=" ".join(hs.dtype.names),
                    comments="")
     print "Trials and Hotspots saved to:"
     print savepath
-    
+    stop1 = time.time()
+
+    mins, secs = divmod(stop1 - start1, 60)
+    hours, mins = divmod(mins, 60)
+    print("Full scan finished after {2:2d}h {0:2d}m {1:2d}s".format(int(mins), int(secs), int(hours)))
+   

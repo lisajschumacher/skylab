@@ -123,7 +123,7 @@ if __name__=="__main__":
                         mode = "box")
 
     llh, injector = utils.startup(**startup_dict)
-
+    state = llh.random.get_state()
     if injector==None:
         mu = None
     else:
@@ -157,11 +157,15 @@ if __name__=="__main__":
                                                   dtypes=np.float, 
                                                   usemask=False)
         if np.any(hs['best']>50):
-            print(np.shape(result))
             np.savetxt(os.path.join(savepath,  "job"+str(jobID)+"_ts-map_"+str(i)+".txt"),
                        result,
                        header=" ".join(result.dtype.names),
                        comments="")
+            utils.save_json_data(startup_dict, savepath, "startup_dict_job"+str(jobID)+"_trial_"+str(i))
+            utils.save_json_data(trials_dict, savepath, "trials_dict_job"+str(jobID)+"_trial_"+str(i))
+            with open(os.path.join(savepath,  "job"+str(jobID)+"_state_"+str(i)+".pickle"), "wb") as f:            
+                pickle.dump(state, f, protocol=-1)
+        state = llh.random.get_state()
 
         np.savetxt(os.path.join(savepath,  "job"+str(jobID)+"_hotspots_"+str(i)+".txt"),
                    hs,

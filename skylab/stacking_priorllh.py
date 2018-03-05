@@ -413,7 +413,7 @@ class PriorLLHMixin(object):
 
         return fmin, pbest
     
-    def do_trials(self, prior, n_iter=2, mu=None, **kwargs):
+    def do_trials(self, prior, n_iter=2, mu=None, do_scrambles=True, **kwargs):
         r"""Create trials of scrambled event maps to estimate the test
 		statistic distribution.
 
@@ -437,6 +437,8 @@ class PriorLLHMixin(object):
 
 		"""
         logger = logging.getLogger(self._logname+".do_trials")
+        if do_scrambles==False and n_iter>1:
+            logger.warn("More than one trial and NO scrambling!!")
 	
         if mu is None:
             mu = itertools.repeat((0, None))
@@ -494,7 +496,7 @@ class PriorLLHMixin(object):
             # Call the corresponding scramble method of super class
 	    if mu is not None and inject[i][1] is not None: 
 		self._remove_injection()
-            super(PriorLLHMixin, self)._scramble_exp()
+            if do_scrambles: super(PriorLLHMixin, self)._scramble_exp()
             yield best_hotspots, result
             i += 1
             if i>=n_iter: return

@@ -21,10 +21,11 @@ from seaborn import cubehelix_palette, color_palette, set_palette
 # These are RWTH colors
 colors = color_palette([(0, 58./256., 111./256.),
                         (246./256., 168./256.,  0),
-                        (97./256., 33./256., 88./256.),
-                        (87./256., 171./256., 39./256.),
                         (204./256., 7./256., 30./256.),
-                        (0, 152./256., 161./256.)])
+                        (87./256., 171./256., 39./256.),
+                        (0, 152./256., 161./256.),
+                        (131./256., 78./256., 117./256.)
+                       ])
 cmap = cubehelix_palette(as_cmap=True, start=.5, rot=-0.9, dark=0., light=0.9, reverse=True, hue=1)
 cmap.set_under("black")
 cmap.set_bad("white")

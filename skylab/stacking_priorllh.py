@@ -302,10 +302,6 @@ class PriorLLHMixin(object):
                 logger.info("{0:s}: no events here.".format(key))
                 continue
 
-            if not np.any(scan[mask]["nsources"] > 0):
-                logger.info("{0}: no over-fluctuation.".format(key))
-                continue
-
             hotspot = np.sort(scan[mask], order=["pVal", "TS"])[-1]
             seed = {p: hotspot[p] for p in self.params}
 
@@ -330,6 +326,12 @@ class PriorLLHMixin(object):
                 pVal=hotspot["pVal"]))
 
             result[key]["grid"].update(seed)
+
+            if not np.any(scan[mask]["TS"] > -10):
+                logger.info("{0}: no over-fluctuation.".format(key))
+                result[key]["fit"] = result[key]["grid"]
+                result[key]["best"] = result[key]["grid"]
+                continue
 
             fmin, xmin = self.fit_source_loc(
                 hotspot["ra"], hotspot["dec"], size=hp.nside2resol(nside),
@@ -401,11 +403,12 @@ class PriorLLHMixin(object):
                     self._rho_max, self._nselected, xmin[0]),
                 RuntimeWarning)
 
+
         pbest = dict(ra=xmin[0], dec=xmin[1])
         pbest.update(dict(zip(self.params, xmin[2:])))
 
         # Separate over and under fluctuations.
-        fmin *= -np.sign(pbest["nsources"])
+        #fmin *= -np.sign(pbest["nsources"])
 
         # Clear cache.
         self._src_ra = np.inf

@@ -516,11 +516,11 @@ class BaseLLH(object):
         # If the null-hypothesis is part of minimization, the fit should be
         # negative; log only if the distance is too large.
         if fmin > 0. and (bounds[0][0] <= 0. and bounds[0][1] >= 0.):
-            #~ if abs(fmin) > kwargs["pgtol"]:
-                #~ warnings.warn(
-                    #~ "Fitter returned positive value, force to be zero at "
-                    #~ "null-hypothesis. Minimum found {0} with fmin "
-                    #~ "{1}.".format(xmin, fmin), RuntimeWarning)
+            if abs(fmin) > kwargs["pgtol"]:
+                warnings.warn(
+                    "Fitter returned positive value, force to be zero at "
+                    "null-hypothesis. Minimum found {0} with fmin "
+                    "{1}.".format(xmin, fmin), RuntimeWarning)
 
             fmin = 0.
             xmin[0] = 0.

@@ -158,8 +158,11 @@ class PriorLLHMixin(object):
             prior = np.zeros_like(ts)		
 
         niterations = 1
-        while True:
-            logger.info("Iteration {0:2d}".format(niterations))
+	tm = np.exp(prior)
+	tm = tm/tm.sum(axis=1)[np.newaxis].T # should be normalized, but let's be sure ...
+	tm = tm.sum(axis=0)
+        while niterations <= 2:
+            logger.warn("Iteration {0:2d}".format(niterations))
             logger.info("Generating equal distant points on sky map...")
             logger.info("nside = {0:d}, resolution {1:.2f} deg".format(
                     nside, np.rad2deg(hp.nside2resol(nside))))
@@ -184,6 +187,7 @@ class PriorLLHMixin(object):
             logger.info("Analyse {0:.2%} of scan...".format(ppoints))
 
             mask = np.isfinite(ts) & (dec > drange[0]) & (dec < drange[-1])
+	    
 
             for dlow, dup in zip(dbound[:-1], dbound[1:]):
                 logger.info("dec = {0:.1f} to {1:.1f} deg".format(
@@ -208,7 +212,13 @@ class PriorLLHMixin(object):
                 # Apply threshold mask only to points belonging to the current
                 # hemisphere.
                 mask &= np.logical_or(dout, tabove)
-
+		
+	    # make a mask based on the priors, because we don't want to scan useless areas
+	    tm = hp.get_interp_val(tm, theta, ra)
+	    # this basically corresponds to 7 sigma range of prior size
+	    mask &= np.log(tm)>-50
+	    logger.info("percentage covered:", np.count_nonzero(mask)*100./len(mask))
+	    
             nscan = mask.sum()
             area = hp.nside2pixarea(nside) / np.pi
 
@@ -224,44 +234,47 @@ class PriorLLHMixin(object):
             ts, xmin = self._scan(ra[mask], dec[mask], ts, xmin, mask)
 
             time = datetime.datetime.now() - time
-            logger.info("Finished after {0}.".format(time)) 
-            result = np.array(zip(ra, dec, theta, ts, np.zeros_like(ts)),
-                              [(f, np.float) for f in "ra", "dec", "theta", "preTS", "allPrior"]
-                             )
-            self.postTS = np.zeros((len(prior),len(ts)))
-            result = numpy.lib.recfunctions.append_fields(
-                     result, names=self.params, 
-                     data=[xmin[p] for p in self.params],
-                     dtypes=[np.float for p in self.params], usemask=False
-                     )
-            hotspots = []
-
-            for i,prior_i in enumerate(prior):
-                # Calculate the prior on the new grid
-                current_prior = hp.get_interp_val(prior_i, theta, ra)
-
-                ## Now we add the prior ##
-                p_ts = ts + 2.*current_prior 
-                pvalue = pVal(p_ts, np.sin(dec))
-                names = ["TS", "pVal", "prior"]
-                ## ... and find the hotspot
-                hotspots.append(self._hotspot(numpy.lib.recfunctions.append_fields(
-                                        result, names=names,
-                                        data=[p_ts, pvalue, current_prior],
-                                        dtypes=[np.float for n in names], usemask=False),
-                                    nside, hemispheres, drange, pVal)
-                                )
-                result["allPrior"] += np.exp(current_prior)
-                self.postTS[i] += np.where(p_ts>0.,p_ts,np.zeros_like(p_ts))
-
-            yield result, np.array(hotspots)
-
-            logger.info(
-                    "Next follow-up: nside = {0:d} * 2**{1:d} = {2:d}".format(
-                            nside, follow_up_factor, nside * 2**follow_up_factor))
+            logger.info("Finished after {0}.".format(time))
+	    if follow_up_factor==0: break
+	    logger.info(
+	        "Next follow-up: nside = {0:d} * 2**{1:d} = {2:d}".format(
+		nside, follow_up_factor, nside * 2**follow_up_factor))
 
             nside *= 2**follow_up_factor
             niterations += 1
+	    
+	result = np.array(zip(ra, dec, theta, ts, np.zeros_like(ts)),
+			  [(f, np.float) for f in "ra", "dec", "theta", "preTS", "allPrior"]
+			 )
+	self.postTS = np.zeros((len(prior),len(ts)))
+	result = numpy.lib.recfunctions.append_fields(
+		 result, names=self.params, 
+		 data=[xmin[p] for p in self.params],
+		 dtypes=[np.float for p in self.params], usemask=False
+		 )
+	hotspots = []
+
+	for i,prior_i in enumerate(prior):
+	    # Calculate the prior on the new grid
+	    current_prior = hp.get_interp_val(prior_i, theta, ra)
+
+	    ## Now we add the prior ##
+	    p_ts = ts + 2.*current_prior 
+	    pvalue = pVal(p_ts, np.sin(dec))
+	    names = ["TS", "pVal", "prior"]
+	    ## ... and find the hotspot
+	    hotspots.append(self._hotspot(numpy.lib.recfunctions.append_fields(
+				    result, names=names,
+				    data=[p_ts, pvalue, current_prior],
+				    dtypes=[np.float for n in names], usemask=False),
+				nside, hemispheres, drange, pVal)
+			    )
+	    result["allPrior"] += np.exp(current_prior)
+	    self.postTS[i] += np.where(p_ts>0.,p_ts,np.zeros_like(p_ts))
+
+	return result, np.array(hotspots)
+
+
     
     def _hotspot(self, scan, nside, hemispheres, drange, pVal):
         r"""Minimize the negative log-likelihood function around source
@@ -473,14 +486,14 @@ class PriorLLHMixin(object):
 		best_hotspots["ra_inj"] = inject[i][2]
 		best_hotspots["dec_inj"] = inject[i][3]
 		
-            for scan_i, (result, hotspots) in enumerate(self.all_sky_scan(prior,
-                                              hemispheres=hemispheres,
-                                              follow_up_factor = follow_up_factor,
-                                              **kwargs)):
-                if follow_up_factor == 0: break # In case you don't want a follow-up
-                if scan_i > 0:
-                    # break after first follow up
-                    break
+            result, hotspots = self.all_sky_scan(prior,
+                                                 hemispheres=hemispheres,
+                                                 follow_up_factor = follow_up_factor,
+                                                 **kwargs)
+	    #~ if follow_up_factor == 0: break # In case you don't want a follow-up
+	    #~ if scan_i > 0:
+	    #~ # break after first follow up
+	    #~ break
             
             for h_i,hspots in enumerate(hotspots):
                 for hk in h_keys:

@@ -241,7 +241,7 @@ class PriorLLHMixin(object):
                 current_prior = hp.get_interp_val(prior_i, theta, ra)
 
                 ## Now we add the prior ##
-                p_ts = ts + current_prior 
+                p_ts = ts + 2.*current_prior 
                 pvalue = pVal(p_ts, np.sin(dec))
                 names = ["TS", "pVal", "prior"]
                 ## ... and find the hotspot
@@ -378,7 +378,7 @@ class PriorLLHMixin(object):
             func, grad = super(PriorLLHMixin,self).llh(**params)
             prior_val = hp.get_interp_val(args[0], np.pi/2. - x[1], x[0])
 
-            return -func - prior_val
+            return -func - 2.*prior_val
 
         dra = size / np.cos(src_dec)
 

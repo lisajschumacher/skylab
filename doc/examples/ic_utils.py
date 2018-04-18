@@ -17,15 +17,21 @@ from seaborn import cubehelix_palette, color_palette, set_palette
 # Cubehelix palettes have a gradient in color and lightness/darkness
 # Makes them look nice in in both color and gray-scale prints 
 '''
-# colors = cubehelix_palette(4, start=.5, rot=-1.1, dark=0.15, light=0.7, reverse=True, hue=2)
+colors = cubehelix_palette(4, start=0.8, rot=-1.3, dark=0.1, light=0.65, reverse=True, hue=2.5)
 # These are RWTH colors
+"""
 colors = color_palette([(0, 58./256., 111./256.),
                         (246./256., 168./256.,  0),
                         (204./256., 7./256., 30./256.),
                         (87./256., 171./256., 39./256.),
                         (0, 152./256., 161./256.),
                         (131./256., 78./256., 117./256.)
-                       ])
+                       ])"""
+"""colors = color_palette([(0, 58./256., 111./256.),
+                        (204./256., 7./256., 30./256),
+                        (246./256., 168./256.,  0),
+                        (131./256., 78./256., 117./256.)
+                       ])"""
 cmap = cubehelix_palette(as_cmap=True, start=.5, rot=-0.9, dark=0., light=0.9, reverse=True, hue=1)
 cmap.set_under("black")
 cmap.set_bad("white")
@@ -82,9 +88,9 @@ def plotting(backend="QT4Agg"):
     rcParams["backend"] = backend
     rcParams["font.size"] = fontsize
     rcParams["font.family"] = "serif"
-    rcParams["font.serif"] = ["Computer Modern"]
-    rcParams["mathtext.fontset"] = "cm"
-    rcParams["text.usetex"] = True
+    rcParams["font.serif"] = ["DejaVu Serif"]
+    rcParams["mathtext.fontset"] = "dejavuserif"
+    #rcParams["text.usetex"] = True
     rcParams["lines.linewidth"] = 2
     rcParams["figure.dpi"] = 120
     rcParams["figure.figsize"] = (tw, tw / 1.2)

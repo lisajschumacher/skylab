@@ -11,13 +11,16 @@ import ic_data
 from matplotlib import gridspec
 from matplotlib.colors import LogNorm
 
-from seaborn import cubehelix_palette, color_palette, set_palette
+from seaborn import cubehelix_palette, color_palette, set_palette, light_palette
 '''
 # Custom colors and colormaps using seaborn
 # Cubehelix palettes have a gradient in color and lightness/darkness
 # Makes them look nice in in both color and gray-scale prints 
 '''
 colors = cubehelix_palette(4, start=0.8, rot=-1.3, dark=0.1, light=0.65, reverse=True, hue=2.5)
+light_colors = []
+for c in colors:
+    light_colors.append(light_palette(c,4)[-2])
 # These are RWTH colors
 """
 colors = color_palette([(0, 58./256., 111./256.),
@@ -71,6 +74,51 @@ def startup(basepath, inipath, seed=0, multi=False, n_samples=2, **kwargs):
 
     return llh, injector
 
+def plain_plotting(backend="QT4Agg"):
+    import matplotlib as mpl
+    # The cycler is included in Matplotlib installations > 2.0
+    # Needed for color and other style cyclings
+    from cycler import cycler
+
+    # This does not work with Matplotlib 2.0
+    #if backend is not None:
+    #    mpl.use(backend)
+    tw = 8
+    fontsize = 15
+    scaler = 1
+    # Start with default settings
+    mpl.rcdefaults()
+    rcParams = dict()
+    # ... better set backend as rcParam
+    rcParams["backend"] = backend
+    rcParams["font.size"] = fontsize
+    rcParams["font.family"] = "serif"
+    rcParams["font.serif"] = ["DejaVu Serif"]
+    rcParams["mathtext.fontset"] = "dejavuserif"
+    rcParams["lines.linewidth"] = 2
+    rcParams["figure.dpi"] = 80
+    rcParams["figure.figsize"] = (tw, tw / 1.2)
+    rcParams["figure.autolayout"] = True
+    # Prop_cycle is new in Matplotlib 2.0
+    rcParams["axes.prop_cycle"] = cycler("color", colors)
+    rcParams["axes.labelsize"] = int(fontsize*scaler)
+    rcParams["axes.titlesize"] = int(fontsize*scaler)
+    rcParams["axes.grid"] = False
+    rcParams["xtick.labelsize"] = int(fontsize*scaler)
+    rcParams["ytick.labelsize"] = int(fontsize*scaler)
+
+    rcParams['figure.subplot.bottom'] = 0.1 # Abstand von unterem Plot Ende bis zum Rand des Bilde
+    rcParams['figure.subplot.wspace'] = 0.1
+    rcParams['figure.subplot.hspace'] = 0.1
+    rcParams['savefig.pad_inches'] = 0.1
+
+    mpl.rcParams.update(rcParams)
+
+    import matplotlib.pyplot as plt
+
+    return plt
+
+
 def plotting(backend="QT4Agg"):
     import matplotlib as mpl
     # The cycler is included in Matplotlib installations > 2.0
@@ -120,7 +168,6 @@ def plotting(backend="QT4Agg"):
 
 def skymap(plt, vals, **kwargs):
     fig, ax = plt.subplots(subplot_kw=dict(projection="aitoff"))
-
     gridsize = 1000
 
     x = np.linspace(np.pi, -np.pi, 2 * gridsize)
@@ -140,6 +187,7 @@ def skymap(plt, vals, **kwargs):
     lat = np.pi /2.  - y
 
     cb = kwargs.pop("colorbar", dict())
+    plot_cb = kwargs.pop("plot_cb", True)
     cb.setdefault("orientation", "horizontal")
     cb.setdefault("fraction", 0.075)
 
@@ -149,13 +197,24 @@ def skymap(plt, vals, **kwargs):
     plt.hlines(np.radians(-5.), -np.pi, np.pi, color="gray", alpha=0.75, linestyle="--", lw=1)
 
     cbar = fig.colorbar(p, **cb)
-
     cbar.solids.set_edgecolor("face")
     cbar.update_ticks()
     if title is not None:
         cbar.set_label(title)
+    if not plot_cb: cbar.remove()
+    ax.xaxis.set_ticks([])
+    plt.text(0,0, r"$180^\circ$", horizontalalignment='center')
+    plt.text(np.pi+0.1, 0, r"$0^\circ$", horizontalalignment='left')
+
+    return fig, ax
+
+
+def simple_skymap(plt, projection="aitoff", **kwargs):
+    fig, ax = plt.subplots(subplot_kw=dict(projection=projection))
+    plt.hlines(np.radians(-5.), -np.pi, np.pi, color="gray", alpha=0.75, linestyle="--", lw=1)
 
     ax.xaxis.set_ticks([])
+    ax.yaxis.set_ticks(np.linspace(-np.pi/2, np.pi/2., num=7))
     plt.text(0,0, r"$180^\circ$", horizontalalignment='center')
     plt.text(np.pi+0.1, 0, r"$0^\circ$", horizontalalignment='left')
 
@@ -184,7 +243,7 @@ def get_paths(hostname):
         inipath = "/data/user/lschumacher/config_files_ps"
         savepath = "/data/user/lschumacher/projects/stacking/hotspot_fitting"
         crpath = "/home/lschumacher/git_repos/general_code_repo/data"
-        figurepath = "/home/lschumacher/plots"
+        figurepath = "/home/lschumacher/public_html/uhecr_stacking/hotspot_fit"
     else:
         print("Unknown Host, please go to this function and set your paths accordingly")
         return None

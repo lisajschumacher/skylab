@@ -98,7 +98,11 @@ if __name__=="__main__":
     # Generate several templates for prior fitting
     # One for each deflection hypothesis each
     pg = UhecrPriorGenerator(args["nsideparam"])
-    log_tm = pg.calc_template(np.radians(args["mdparams"]), pg._get_UHECR_positions(args["ecut"], crpath))
+    log_tm = pg.calc_template(np.radians(args["mdparams"]), args["ecut"], crpath)
+    if args["shift"]:
+	log_tm_signal = pg.calc_template(np.radians(args["mdparams"]), args["ecut"], crpath, shift=args["shift"])
+    else:
+	log_tm_signal = log_tm
     #energies = pg.energy
     
     startup_dict = dict(basepath = basepath,
@@ -120,7 +124,7 @@ if __name__=="__main__":
 			sinDec_range = sinDec_range,
                         mode = "box")
     if args["mu"]>0:
-        temp = np.exp(log_tm)
+        temp = np.exp(log_tm_signal)
         tm = temp/temp.sum(axis=1)[np.newaxis].T
     else:
         tm = []

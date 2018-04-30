@@ -159,12 +159,11 @@ class UhecrPriorGenerator(PriorGenerator):
             self._n_uhecr = n
 
     
-    def calc_template(self, deflection, t_params):
+    def calc_template(self, deflection, energy_threshold, data_path, **kwargs):
         r""" Calculate the Prior template from ra, dec and sigma parameters.
         The single templates are constructed as 2D-symmetric Gaussians 
         on position (ra, dec) with width of sigma. All contributions are
-        added up to build the complete Prior template or
-        TO DO: LEAVE THEM AS SINGLE PRIORS
+        added up to build the Prior template 
         
         Using 2D-Vectors on a sphere
         
@@ -179,7 +178,10 @@ class UhecrPriorGenerator(PriorGenerator):
         returns:
             Prior Template in HealPy map format
         """
-        t_ra, t_dec, t_energy, t_reco = t_params
+        t_ra, t_dec, t_energy, t_reco = self._get_UHECR_positions(energy_threshold,
+	                                                          data_path,
+								  **kwargs
+								  )
         t_ra = np.atleast_1d(t_ra)
         t_dec = np.atleast_1d(t_dec)
         t_energy = np.atleast_1d(t_energy)
@@ -204,6 +206,7 @@ class UhecrPriorGenerator(PriorGenerator):
         return _template
 
     def _get_UHECR_positions(self, energy_threshold, data_path,
+			     shift = False,
                              files = ["AugerUHECR2014.txt", "TelArrayUHECR.txt"],
 			     declination_range = [-np.pi/2., np.pi/2.]
 			     ):
@@ -259,6 +262,8 @@ class UhecrPriorGenerator(PriorGenerator):
         ra = np.array(ra_temp)[e_mask]
         energy = np.array(e_temp)[e_mask]
         sigma_reco = np.array(sigma_reco)[e_mask]
+	if shift==True:
+	    dec += sigma_reco
 
         # set attributes which we want to have access to
         self.n_uhecr = len(ra)

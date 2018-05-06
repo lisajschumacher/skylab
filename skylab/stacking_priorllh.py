@@ -215,6 +215,8 @@ class PriorLLHMixin(object):
 		
 	    # make a mask based on the priors, because we don't want to scan useless areas
 	    tm = hp.get_interp_val(tm, theta, ra)
+            tm[tm<=0] = min(tm[tm>0])
+            # logger.warn("min tm {}".format( min(tm)))
 	    # this basically corresponds to 7 sigma range of prior size
 	    mask &= np.log(tm)>-50
 	    logger.info("percentage covered:", np.count_nonzero(mask)*100./len(mask))

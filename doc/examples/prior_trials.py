@@ -40,7 +40,8 @@ ident = [
 "mdparams",
 "ecut",
 "mu",
-"fixedgamma"
+"fixedgamma",
+"shift"
 ]
 
 parser = ArgumentParser()
@@ -99,10 +100,7 @@ if __name__=="__main__":
     # One for each deflection hypothesis each
     pg = UhecrPriorGenerator(args["nsideparam"])
     log_tm = pg.calc_template(np.radians(args["mdparams"]), args["ecut"], crpath)
-    if args["shift"]:
-	log_tm_signal = pg.calc_template(np.radians(args["mdparams"]), args["ecut"], crpath, shift=args["shift"])
-    else:
-	log_tm_signal = log_tm
+    log_tm_signal = pg.calc_template(np.radians(args["mdparams"]), args["ecut"], crpath, shift=args["shift"])
     #energies = pg.energy
     
     startup_dict = dict(basepath = basepath,
@@ -126,6 +124,7 @@ if __name__=="__main__":
     if args["mu"]>0:
         temp = np.exp(log_tm_signal)
         tm = temp/temp.sum(axis=1)[np.newaxis].T
+        print("Choosing signal template")
     else:
         tm = []
 
@@ -152,8 +151,9 @@ if __name__=="__main__":
                                     **trials_dict)
     for i,(hs, result) in enumerate(trial_generator):
         if "test" in args["add"].lower():
-            keys = hemispheres.keys()
-	    keys.extend(['best', 'ra', 'dec', 'nsources', 'gamma'])
+            #keys = hemispheres.keys()
+	    keys = ['best', 'nsources', 'gamma', 'ra', 'dec']
+            if args["mu"]>0: keys.extend(["ra_inj", "dec_inj"])
             print(keys)
             print(hs[keys])
         # Save the results

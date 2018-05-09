@@ -206,7 +206,7 @@ class UhecrPriorGenerator(PriorGenerator):
         return _template
 
     def _get_UHECR_positions(self, energy_threshold, data_path,
-			     shift = False,
+			     shift = 0.,
                              files = ["AugerUHECR2014.txt", "TelArrayUHECR.txt"],
 			     declination_range = [-np.pi/2., np.pi/2.]
 			     ):
@@ -262,9 +262,8 @@ class UhecrPriorGenerator(PriorGenerator):
         ra = np.array(ra_temp)[e_mask]
         energy = np.array(e_temp)[e_mask]
         sigma_reco = np.array(sigma_reco)[e_mask]
-	if shift==True:
-	    dec += sigma_reco
-
+	ra += shift * sigma_reco
+        ra = ra%(np.pi*2.)
         # set attributes which we want to have access to
         self.n_uhecr = len(ra)
         self.energy = energy

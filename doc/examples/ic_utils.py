@@ -376,4 +376,28 @@ def angular_distance(x1, x2):
     x1=np.array(x1)
     x2=np.array(x2)
     assert(len(x1)==len(x2)==2)
-    return np.sin(x1[0]) * np.sin(x2[0]) + np.cos(x1[0]) * np.cos(x2[0]) * np.cos(x1[1]-x2[1])
+    return np.arccos(np.sin(x1[0]) * np.sin(x2[0]) + np.cos(x1[0]) * np.cos(x2[0]) * np.cos(x1[1]-x2[1]))
+
+def angular_dist(delta1, alpha1, delta2, alpha2):
+    """
+    Calculate the angular distance of two directions 1 and 2, 
+    given as delta=declination and alpha=right ascension
+    
+    delta : declination
+    alpha : right ascension
+    
+    can be single values or numpy.arrays (1D)
+    single values are converted to single-entry arrays so that the vector/matrix calculations work
+    """
+    
+    delta1 = np.atleast_1d(delta1)
+    delta2 = np.atleast_1d(delta2)
+    alpha1 = np.atleast_1d(alpha1)
+    alpha2 = np.atleast_1d(alpha2)
+    
+    # We now check that all arrays have the same length
+    assert(len(delta1)==len(alpha1))
+    assert(len(delta2)==len(alpha2))
+    
+    return np.arccos(np.sin(delta1)[np.newaxis].T*np.sin(delta2)+np.cos(delta1)[np.newaxis].T*np.cos(delta2)*np.cos(alpha1[np.newaxis].T-alpha2))#.flatten()
+
